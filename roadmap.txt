@@ -1,0 +1,13 @@
+Thoughts and plans:
+
+
+Probably should copy sub-album thumbnails up to the parent album, so Basic Auth protected galleries don't
+cause so much ugliness.
+
+Pagination
+- images
+- sub-albums
+
+Consistent terminology. Album and Gallery are used interchangeably, and maybe shouldn't be.
+
+

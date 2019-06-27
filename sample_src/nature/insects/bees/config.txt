@@ -1,0 +1,3 @@
+title=Covered in BEEEEs gallery
+copyright=SjG
+description=I'm covered in BEEEEs

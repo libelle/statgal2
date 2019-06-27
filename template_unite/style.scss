@@ -1,0 +1,162 @@
+$darkest:#25274d;
+$accent:#474866;
+$highlight:#a9abb8;
+$hot:#2d9cca;
+$hotgray:#9c9c9c;
+$contrast:#29648a;
+/* reset.css */
+html, body, div, span, object, iframe, h1, h2, h3, h4, h5, h6, p, blockquote, pre, a, abbr, acronym, address, code, del, dfn, em, img, q, dl, dt, dd, ol, ul, li, fieldset, form, label, legend, table, caption, tbody, tfoot, thead, tr, th, td, nav, section, main {
+    margin: 0;
+    padding: 0;
+    border: 0;
+    font-weight: inherit;
+    font-style: inherit;
+    font-size: 14px;
+    vertical-align: baseline;
+    font-family: "Lucida Grande", "Lucida Sans Unicode", Helvetica, Arial, sans-serif
+}
+
+html {
+    background-color: $darkest;
+    color: $hotgray;
+}
+
+a,a:visited,a:active {
+    color: $hot;
+    text-decoration: none
+}
+
+a:hover {
+    text-decoration: underline;
+}
+
+body {
+    line-height: 1.5;
+    background-color: $accent;
+}
+
+table {
+    border-collapse: separate;
+    border-spacing: 0;
+}
+
+caption, th, td {
+    text-align: left;
+    font-weight: normal;
+}
+
+table, td, th {
+    vertical-align: middle;
+}
+
+blockquote:before, blockquote:after, q:before, q:after {
+    content: "";
+}
+
+blockquote, q {
+    quotes: "" "";
+}
+
+a img {
+    border: none;
+}
+
+a {
+    text-decoration: none
+}
+
+a:hover {
+    text-decoration: underline;
+}
+
+ul.breadcrumb li {
+    list-style: none;
+    display: inline;
+    padding-right: 1em;
+    &:before {
+        content: "»";
+        color: $hot;
+    }
+    a {
+        color: $hot;
+    }
+}
+
+header {
+    width: 100%;
+}
+
+main {
+    width: 98%;
+    margin: 0 auto;
+}
+
+footer {
+    width: 100%;
+    text-align: center;
+    font-size: 12px;
+    margin: 10em auto 0;
+    color: $highlight;
+    background-color: $darkest;
+}
+
+h1 {
+    width: 100%;
+    color: $highlight;
+    background-color: $darkest;
+    font-size: 18px;
+    padding: 0.75em 1em;
+    font-weight: bold;
+}
+
+h2 {
+    color: $highlight;
+    background-color: $accent;
+    border-bottom: 1px dotted $highlight;
+    font-size: 16px;
+    padding: 0.25em 0;
+    font-weight: bold;
+}
+
+h3 {
+    color: $highlight;
+    font-size: 16px;
+    padding: 0.25em 0
+}
+
+section.border {
+    max-width: 95%;
+    padding: 0 2% 2%;
+}
+
+ul.threecol {
+    columns: 2;
+    li {
+        list-style: none;
+        text-align: left;
+        padding-bottom: 0.25em;
+    }
+}
+
+ul.keywords {
+    display: block;
+    li {
+        list-style: none;
+        display: inline-block;
+        &:not(:first-child):before {
+            content: "|"
+        }
+    }
+}
+div.image {
+    display:table;
+    img {
+        max-width: 100%
+    }
+    nav {
+        display: table-row;
+        width: 100%
+    }
+}
+a.left {text-align:left;display:table-cell;float:left;}
+a.right {text-align:right;display:table-cell;float:right}

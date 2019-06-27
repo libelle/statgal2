@@ -1,0 +1,137 @@
+@charset "UTF-8";
+/* reset.css */
+html, body, div, span, object, iframe, h1, h2, h3, h4, h5, h6, p, blockquote, pre, a, abbr, acronym, address, code, del, dfn, em, img, q, dl, dt, dd, ol, ul, li, fieldset, form, label, legend, table, caption, tbody, tfoot, thead, tr, th, td, nav, section, main {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  font-weight: inherit;
+  font-style: inherit;
+  font-size: 14px;
+  vertical-align: baseline;
+  font-family: "Lucida Grande", "Lucida Sans Unicode", Helvetica, Arial, sans-serif; }
+
+html {
+  background-color: #25274d;
+  color: #9c9c9c; }
+
+a, a:visited, a:active {
+  color: #2d9cca;
+  text-decoration: none; }
+
+a:hover {
+  text-decoration: underline; }
+
+body {
+  line-height: 1.5;
+  background-color: #474866; }
+
+table {
+  border-collapse: separate;
+  border-spacing: 0; }
+
+caption, th, td {
+  text-align: left;
+  font-weight: normal; }
+
+table, td, th {
+  vertical-align: middle; }
+
+blockquote:before, blockquote:after, q:before, q:after {
+  content: ""; }
+
+blockquote, q {
+  quotes: "" ""; }
+
+a img {
+  border: none; }
+
+a {
+  text-decoration: none; }
+
+a:hover {
+  text-decoration: underline; }
+
+ul.breadcrumb li {
+  list-style: none;
+  display: inline;
+  padding-right: 1em; }
+  ul.breadcrumb li:before {
+    content: "»";
+    color: #2d9cca; }
+  ul.breadcrumb li a {
+    color: #2d9cca; }
+
+header {
+  width: 100%; }
+
+main {
+  width: 98%;
+  margin: 0 auto; }
+
+footer {
+  width: 100%;
+  text-align: center;
+  font-size: 12px;
+  margin: 10em auto 0;
+  color: #a9abb8;
+  background-color: #25274d; }
+
+h1 {
+  width: 100%;
+  color: #a9abb8;
+  background-color: #25274d;
+  font-size: 18px;
+  padding: 0.75em 1em;
+  font-weight: bold; }
+
+h2 {
+  color: #a9abb8;
+  background-color: #474866;
+  border-bottom: 1px dotted #a9abb8;
+  font-size: 16px;
+  padding: 0.25em 0;
+  font-weight: bold; }
+
+h3 {
+  color: #a9abb8;
+  font-size: 16px;
+  padding: 0.25em 0; }
+
+section.border {
+  max-width: 95%;
+  padding: 0 2% 2%; }
+
+ul.threecol {
+  columns: 2; }
+  ul.threecol li {
+    list-style: none;
+    text-align: left;
+    padding-bottom: 0.25em; }
+
+ul.keywords {
+  display: block; }
+  ul.keywords li {
+    list-style: none;
+    display: inline-block; }
+    ul.keywords li:not(:first-child):before {
+      content: "|"; }
+
+div.image {
+  display: table; }
+  div.image img {
+    max-width: 100%; }
+  div.image nav {
+    display: table-row;
+    width: 100%; }
+
+a.left {
+  text-align: left;
+  display: table-cell;
+  float: left; }
+
+a.right {
+  text-align: right;
+  display: table-cell;
+  float: right; }
+
+/*# sourceMappingURL=style.css.map */

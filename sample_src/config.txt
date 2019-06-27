@@ -1,0 +1,130 @@
+#################################################################################################
+# statgal2 config file
+# Each directory inherits the config of its parent directory
+# you can override it partially (or entirely) with a separate config.txt file
+#################################################################################################
+
+#################################################################################################
+# Section 1. Global items.
+# You could override these in individual albums, but it would not be wise.
+#################################################################################################
+# target for output
+destination_directory=docs
+# location for .htaccess files (when creating password-protected areas)
+htpasswd_directory=.
+# site title
+site_title=Static Gallery v.2
+# base_url should be the root to your gallery. It can be one of several forms:
+# - an absolute URL (e.g., https://www.myphotos.com/gallery) so every link will be fully-qualified
+# - blank for server-relative so every link will be /album/...
+# - an asterisk (*) to make all links directory-relative (e.g., path/under/output_dir/...)
+base_url=*
+# generated output can be html, php, or whatever
+generated_page_extension=html
+
+
+#################################################################################################
+# Section 2. Album-specific settings.
+# If you don't override them, they're gonna be global too.
+#################################################################################################
+# copyright notice
+copyright=SjG
+# album title
+title=Top
+
+# sort for display of images within the album: may be "alpha" or "date"
+image_sort=date
+# direction for the image sort can be "asc" or "desc"
+image_sort_dir=asc
+# sort for display of sub-albums: may be "alpha" or "date"
+subalbum_sort=date
+# direction for the sub-album sort can be "asc" or "desc"
+subalbum_sort_dir=desc
+# sub-album thumbnail image may be chosen by "random", "alpha" (first alpha), "oldest", or "youngest" image within
+gallery_thumbs=random
+
+# rename images by the gallery name and an index, e.g., this-gallery-name001.jpg
+rename_images_by_gallery=true
+
+# provide a downloadable zip file for each gallery containing its images?
+gallery_zipfile=true
+
+# provide a link on the image detail page to download the largest image size? Doesn't work for videos.
+download_largest=true
+
+
+#################################################################################################
+# Section 3. Album protection.
+# password protection, using Apache "Basic Authentication" for rudimentary security.
+# Remember, once an image has been downloaded by anyone, you are no longer in control of it.
+#################################################################################################
+# Basic authentication realm for display on password prompt. Uncomment the next line.
+# auth_realm=Static Galley
+# users and passwords. Each user/password pair is separated by a semicolon. The user name is
+# separated from the password by a colon. We've just reduced password entropy by two symbols :(
+# Uncomment the next line.
+#auth_users=alice:t0ps3cr!t;bob:0kyouM@yview
+
+
+#################################################################################################
+# Section 4. Image size settings.
+# If you don't override them, they're gonna be global too.
+# Specifications are the maximum size (in pixels) of the longest side of image, regardless of
+# aspect ratio. Scaling is always downward; even huge numbers will never increase size of images.
+# quality is jpeg quality.
+#################################################################################################
+# shown in album pages, and for sub-albums
+thumb_size=200
+thumb_quality=95
+
+# shown on image detail page
+display_size=800
+display_quality=95
+
+# linked for download. These settings generally just copy the original.
+full_size=10000
+full_quality=100
+
+#################################################################################################
+# Section 5. Image tagging.
+# If you have exiv2 installed, you can do a lot with keyword tagging. This pulls details out
+# of image EXIF, and creates links to keyword summary pages. Similarly, year/month pages can
+# be created. You can also create a "labeled image" where the keywords are added to the actual
+# image file like a caption.
+#################################################################################################
+# enable extracting Tagging/EXIF?
+enable_keywords=true
+# create keyword pages?
+create_keyword_pages=true
+
+# enable extracting date information?
+enable_date_index=true
+# create year/month pages?
+create_date_index_pages=true
+
+# Excluded keywords will not be ignored at extraction time
+exclude_keywords=ignore,neglect,omit,uploaded,RawImages
+
+# exclude_from_tagged will be used on the site but not be rendered into tagged images
+exclude_from_tagged=NIKON,NIKON CORPORATION,NIKON D70,E995,NIKON D90,Canon EOS DIGITAL REBEL,Canon,n/a
+
+# create a version of the image with the keywords and title rendered into the image?
+create_labeled_image=true
+# labeling font, ttf file
+font_path=/Library/Fonts/Arial.ttf
+
+#################################################################################################
+# Section 6. Templates
+# Template files for building pages. Best documentation is to look at supplied templates.
+#################################################################################################
+template_gallery=template_unite/gallery.php
+template_image=template_unite/image.php
+template_keywords=template_unite/keywords.php
+template_keyword=template_unite/gallery.php
+template_dates=template_unite/dates.php
+template_date=template_unite/gallery.php
+# in addition to rendering pages, copy these files/directories into the root level of the output
+template_copy=template_unite/unitegallery,template_unite/style.css
+
+
+

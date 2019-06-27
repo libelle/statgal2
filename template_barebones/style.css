@@ -1,0 +1,151 @@
+/* reset.css */
+html, body, div, span, object, iframe, h1, h2, h3, h4, h5, h6, p, blockquote, pre, a, abbr, acronym, address, code, del, dfn, em, img, q, dl, dt, dd, ol, ul, li, fieldset, form, label, legend, table, caption, tbody, tfoot, thead, tr, th, td, nav, section, main {
+    margin: 0;
+    padding: 0;
+    border: 0;
+    font-weight: inherit;
+    font-style: inherit;
+    font-size: 14px;
+    vertical-align: baseline;
+    font-family: "Lucida Grande", "Lucida Sans Unicode", Helvetica, Arial, sans-serif;
+    color: #666;
+}
+
+body {
+    line-height: 1.5;
+}
+
+table {
+    border-collapse: separate;
+    border-spacing: 0;
+}
+
+caption, th, td {
+    text-align: left;
+    font-weight: normal;
+}
+
+table, td, th {
+    vertical-align: middle;
+}
+
+blockquote:before, blockquote:after, q:before, q:after {
+    content: "";
+}
+
+blockquote, q {
+    quotes: "" "";
+}
+
+a img {
+    border: none;
+}
+
+a,a:visited,a:active {
+    color: #7da7d9;
+    text-decoration: none
+}
+
+a:hover {
+    text-decoration: underline;
+}
+
+ul.breadcrumb li {
+    list-style: none;
+    display: inline;
+    padding-right: 1em
+}
+
+ul.breadcrumb li:before {
+    content: "»"
+}
+
+header {
+    width: 100%
+}
+
+main {
+    width: 98%;
+    margin: 0 auto;
+}
+
+footer {
+    width: 100%;
+    text-align: center;
+    font-size: 12px;
+    margin: 5em auto 0
+}
+
+h1 {
+    width: 100%;
+    color: white;
+    background-color: #7da7d9;
+    font-size: 18px;
+    padding: 0.25em 1em;
+    font-weight: bold;
+}
+
+h2 {
+    color: #7da7d9;
+    background-color: white;
+    font-size: 16px;
+    padding: 0.25em 0;
+    font-weight: bold;
+}
+
+h3 {
+    color: #666;
+    font-size: 16px;
+    padding: 0.25em 0
+}
+
+section.border {
+    border: 1px solid #ccc;
+    max-width: 95%;
+    padding: 0 2% 2%;
+}
+
+ul.grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    grid-gap: 5px;
+    align-items: start;
+}
+
+ul.grid li {
+    list-style: none;
+    border: 1px solid #ccc;
+    width: 300px;
+    text-align:center;
+}
+
+ul.grid li img {
+    max-height:300px;
+}
+
+ul.threecol {
+    columns: 2;
+}
+
+ul.threecol li {
+    list-style: none;
+    text-align:left;
+    padding-bottom: 0.25em;
+}
+
+ul.keywords {
+    display: block;
+}
+
+ul.keywords li {
+    list-style: none;
+   display: inline-block;
+}
+ul.keywords li:not(:first-child):before {
+    content: "|"
+}
+div.image {display:table}
+div.image img {max-width:100%;}
+div.image nav {display:table-row;width:100%}
+a.left {text-align:left;display:table-cell;float:left;}
+a.right {text-align:right;display:table-cell;float:right}

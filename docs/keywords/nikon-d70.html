@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <title>NIKON D70</title>
+
+  <script type="text/javascript" src="../unitegallery/js/jquery-11.0.min.js"></script>
+  <script type="text/javascript" src="../unitegallery/js/unitegallery.js"></script>
+
+  <link rel="stylesheet" href="../unitegallery/css/unite-gallery.css" type="text/css" />
+  <script type="text/javascript" src="../unitegallery/themes/tiles/ug-theme-tiles.js"></script>
+  <link rel="stylesheet" href="../style.css" type="text/css" />
+</head>
+<body>
+<header>
+  <h1>Static Gallery v.2</h1>
+</header>
+<main>
+<ul class="breadcrumb"><li><a href="../index.html">Top</a></li><li><a href="index.html">Keywords</a></li></ul>
+  <h2>NIKON D70</h2>
+
+  <section class="border">
+    <h3>Images</h3>
+    <div id="images" style="display:none;">
+                    <a href="../nature/grapes/grapes-05.html">
+              <img src="../nature/grapes/thumb/grapes-05.jpg"
+                   data-image="#"
+                   data-description="Grapes-05" alt="Grapes-05">
+            </a>
+                    <a href="../nature/grapes/grapes-07.html">
+              <img src="../nature/grapes/thumb/grapes-07.jpg"
+                   data-image="#"
+                   data-description="Grapes-07" alt="Grapes-07">
+            </a>
+                    <a href="../nature/grapes/grapes-06.html">
+              <img src="../nature/grapes/thumb/grapes-06.jpg"
+                   data-image="#"
+                   data-description="Grapes-06" alt="Grapes-06">
+            </a>
+                    <a href="../nature/grapes/grapes-08.html">
+              <img src="../nature/grapes/thumb/grapes-08.jpg"
+                   data-image="#"
+                   data-description="Grapes-08" alt="Grapes-08">
+            </a>
+            </div>
+        </section>
+</main>
+<footer>
+    Copyright &copy; 2019 SjG</footer>
+<script type="text/javascript">
+
+    jQuery(document).ready(function(){
+        jQuery("#subalbums").unitegallery({
+            gallery_theme: "tiles",
+            tiles_type:'cols',
+                tiles_col_width: 200,
+            tile_overlay_opacity:0.3,
+            tile_enable_icons:false,
+            tile_enable_textpanel:true,
+            tile_as_link:true,
+            tile_link_newpage:false,
+            lightbox_textpanel_title_color:"e5e5e5"}
+            );
+        jQuery("#images").unitegallery({
+            gallery_theme: "tiles",
+            tiles_type:'cols',
+            tiles_col_width: 200,
+            tile_overlay_opacity:0.3,
+            tile_enable_icons:false,
+            tile_enable_textpanel:true,
+            tile_as_link:true,
+            tile_link_newpage:false,
+            lightbox_textpanel_title_color:"e5e5e5"}
+        );
+    });
+
+</script>
+</body>
+</html>
