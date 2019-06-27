@@ -1,5 +1,7 @@
 # statgal2
-Quick'n'Dirty Static Gallery Builder with a few interesting features
+**Quick'n'Dirty Static Gallery Builder with a few interesting features.**
+
+*Need I emphasize it's cruftalicious? It works, but only by dumb luck. Don't say you weren't warned.*
 
 - Given a hierarchy of directories containing images and videos, build a static gallery.
 
@@ -40,4 +42,4 @@ PHP with Imagick and SQLLite support. If you're going to do keywords, you'll nee
 - Run it: `./statgal2.php -s sample_src`
 
 # sample output
-
+You can see the output when this is [run against the sample_src directory](https://libelle.github.io/statgal2/).
