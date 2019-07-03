@@ -43,6 +43,10 @@ subalbum_sort_dir=desc
 # sub-album thumbnail image may be chosen by "random", "alpha" (first alpha), "oldest", or "youngest" image within
 gallery_thumbs=random
 
+# force thumbnails to a consistent aspect-ratio. Specify as 3x2 or 4:3. This aspect ratio is for galleries where
+# 4:3 and 3:2 images co-exist. It does not force an orientation such as all landscape or all portrait.
+thumb_aspect=3:2
+
 # rename images by the gallery name and an index, e.g., this-gallery-name001.jpg
 rename_images_by_gallery=true
 
@@ -96,6 +100,8 @@ full_quality=100
 enable_keywords=true
 # create keyword pages?
 create_keyword_pages=true
+# add words from album name to image keywords?
+album_name_keywords=true
 
 # enable extracting date information?
 enable_date_index=true

@@ -90,6 +90,19 @@ class Utils {
     }
 
     /**
+     * Remove some words irrelevant to titles
+     * @param $str
+     * @return mixed
+     */
+    public static function removeNoisewords($str)
+    {
+        return str_ireplace(
+            array(' in ',' and ',' from ',' to ',' the ', ' a ',' an ',' this ',' that ',' by ',' with ',' or '),
+            '',
+            $str);
+    }
+
+    /**
      * Get month name
      * @param $num int month number, 1-indexed
      */

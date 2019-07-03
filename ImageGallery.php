@@ -195,7 +195,7 @@ class ImageGallery
      * @param $exclude array of keywords to ignore
      * @return bool|false|int|mixed
      */
-    public function getKeywords($file, $get_keywords, $build_date_index, $exclude)
+    public function getKeywords($file, $get_keywords, $build_date_index, $exclude, $add=array())
     {
         if ($this->verbose) echo "Scanning file for" . ($get_keywords ? " keywords and" : "") . " EXIF date/title.\n";
         $latest = false;
@@ -226,6 +226,12 @@ class ImageGallery
                 $latest = $file['image_date'];
             if ($get_keywords)
             {
+                foreach($add as $tk)
+                {
+                    $keywords['keywords'][] = $tk;
+                }
+                $lowered = array_map('strtolower', $keywords['keywords']);
+                $keywords['keywords']=array_intersect_key($keywords['keywords'], array_unique($lowered));
                 foreach (array('keywords', 'make', 'model') as $tkwl)
                 {
                     foreach ($keywords[$tkwl] as $tkw)
@@ -367,7 +373,11 @@ class ImageGallery
             {
                 // do keywords
                 if (!empty($this->exivpath))
-                    $latest = $this->getKeywords($row, $album['config']['enable_keywords'], $album['config']['enable_date_index'],$exclude);
+                    $latest = $this->getKeywords($row, $album['config']['enable_keywords'],
+                        $album['config']['enable_date_index'],
+                        $exclude,
+                        ($album['config']['album_name_keywords']?$this->getKeywordsFromTitle($album['title']):array())
+            );
             }
         }
 
@@ -375,6 +385,16 @@ class ImageGallery
             $this->_db->prepare('UPDATE albums set latest_date=:latest_date where id=:id')->execute(array(':id'=>$album['id'],':latest_date'=>$latest));
         if ($album_changed)
             $this->_db->prepare('UPDATE albums set changed=1 where id=:id')->execute(array(':id' => $album['id']));
+    }
+
+    /**
+     * Title pieces into keywords
+     * @param $string
+     * @return array
+     */
+    public function getKeywordsFromTitle($string)
+    {
+        return explode(' ',Utils::removeNoisewords($string));
     }
 
     /**
@@ -514,14 +534,18 @@ class ImageGallery
                 $size = $this->buildScaledImage($image['spec'],
                     $dest . DIRECTORY_SEPARATOR . $image['gallery_spec'],
                     $album['config'][$size . '_size'],
-                    $album['config'][$size . '_quality']
+                    $album['config'][$size . '_quality'],
+                    ($idx==0 && ! empty($album['config']['thumb_aspect'])?$album['config']['thumb_aspect']:'')
                 );
             }
             else if ($idx == 0)
             {
                 $this->buildVideoThumbnail($image['spec'],
                     $dest . DIRECTORY_SEPARATOR . $image['gallery_spec'],
-                    $album['config'][$size . '_size']);
+                    $album['config'][$size . '_size'],
+                    $album['config'][$size . '_quality'],
+                    ! empty($album['config']['thumb_aspect'])?$album['config']['thumb_aspect']:''
+                );
             }
             else
             {
@@ -541,16 +565,23 @@ class ImageGallery
      * @param $dest string destination spec
      * @param $size integer width of thumbnail
      */
-    public function buildVideoThumbnail($src, $dest, $size)
+    public function buildVideoThumbnail($src, $dest, $size, $quality, $aspect='')
     {
         if ($this->ffmpegpath)
         {
             if ($this->verbose) echo "Creating video thumbnail $dest with max dimension $size\n";
             $cmd = $this->ffmpegpath . ' -i ' . escapeshellarg($src) . ' -vf "thumbnail,scale='.$size.
-                ':-1" -frames:v 1 ' . pathinfo($dest,PATHINFO_DIRNAME).DIRECTORY_SEPARATOR.
-                pathinfo($dest,PATHINFO_FILENAME).'.jpg';
-            echo "$cmd\n";
+                ':-1" -frames:v 1 ' . escapeshellarg($src.'_VT.jpg');
             exec($cmd);
+            $this->buildScaledImage(
+                $src.'_VT.jpg',
+                pathinfo($dest,PATHINFO_DIRNAME).DIRECTORY_SEPARATOR.
+                        pathinfo($dest,PATHINFO_FILENAME).'.jpg',
+                $size,
+                $quality,
+                $aspect
+                );
+            unlink($src.'_VT.jpg');
         }
         else
             echo "No ffmpeg path, so no thumbnail for you, my friend.\n";
@@ -568,7 +599,6 @@ class ImageGallery
         {
             if ($this->verbose) echo "Creating scaled video $dest with max dimension $size\n";
             $cmd = $this->ffprobepath . ' -v error -show_entries stream=width,height -of csv=p=0:s=x ' . escapeshellarg($src);
-            echo "$cmd\n";
             $res = shell_exec($cmd);
             if (!empty($res))
             {
@@ -591,13 +621,11 @@ class ImageGallery
                             ' -vcodec h264 -acodec aac -strict -2 '.
                             ($scale ? ' -vf "scale=' . $scale . '"' : '') . ' ' . pathinfo($dest,PATHINFO_DIRNAME).
                             DIRECTORY_SEPARATOR.pathinfo($dest, PATHINFO_FILENAME) . '.mp4';
-                        echo "$cmd\n";
                         exec($cmd);
                         $cmd = $this->ffmpegpath . ' -y -i ' . escapeshellarg($src) .
                                 ($scale ? ' -vf "scale=' . $scale . '"' : '') .
                             ' -c:v libvpx-vp9 -crf 30 -b:v 0 '.pathinfo($dest,PATHINFO_DIRNAME).
                             DIRECTORY_SEPARATOR.pathinfo($dest, PATHINFO_FILENAME) . '.webm';
-                        echo "$cmd\n";
                         exec($cmd);
                     }
                 }
@@ -663,29 +691,51 @@ class ImageGallery
      * @param $quality
      * @throws ImagickException
      */
-    public function buildScaledImage($src, $dest, $max_pixels, $quality)
+    public function buildScaledImage($src, $dest, $max_pixels, $quality, $aspect = '')
     {
         $ret = '';
         if ($this->verbose) echo "Creating image $dest with max dimension $max_pixels\n";
         $image = new Imagick($src);
         $h = $image->getImageHeight();
         $w = $image->getImageWidth();
-        if ($h > $max_pixels || $w > $max_pixels)
+        $scaled = false;
+        if (!empty($aspect))
         {
+            list($asp_l, $asp_s) = preg_split('/[x\:]+/', $aspect);
+            $target_asp = $asp_l / $asp_s;
+            $current_asp = max($w / $h, $h / $w);
+            if (abs($target_asp - $current_asp) > 0.1) // aspect ratios differ
+            {
+                if ($this->verbose) echo "Fixing aspect ratio\n";
+                if ($h <= $w)
+                    $image->cropThumbnailImage($max_pixels, floor($max_pixels / $target_asp));
+                else
+                    $image->cropThumbnailImage(floor($max_pixels / $target_asp), $max_pixels);
+                $scaled = true;
+            }
+        }
+        if (!$scaled && ($h > $max_pixels || $w > $max_pixels))
+        {
+            if ($this->verbose) echo "Normal scaling\n";
             if ($h <= $w)
                 $image->resizeImage($max_pixels, 0, Imagick::FILTER_LANCZOS, 0.9);
             else
                 $image->resizeImage(0, $max_pixels, Imagick::FILTER_LANCZOS, 0.9);
 
+            $scaled = true;
+        }
+        if (!$scaled)
+            copy($src, $dest);
+        else
+        {
             $image->setImageCompression(Imagick::COMPRESSION_JPEG);
             $image->setImageCompressionQuality($quality);
             $image->writeImage($dest);
             $h = $image->getImageHeight();
             $w = $image->getImageWidth();
-            $image->destroy();
         }
-        else
-            copy($src, $dest);
+        $image->destroy();
+
         $ret = "{$w}x{$h}";
         return $ret;
     }
@@ -771,6 +821,8 @@ class ImageGallery
             'auth_users' => '',
             'gallery_thumbs'=>'random',
             'rename_images_by_gallery'=>true,
+            'thumb_aspect'=>'',
+            'album_name_keywords'=>true
         );
     }
 
@@ -799,7 +851,6 @@ class ImageGallery
         if (file_exists($dir . DIRECTORY_SEPARATOR . 'config.txt'))
         {
             $new = filemtime($dir . DIRECTORY_SEPARATOR . 'config.txt');
-            //if ($this->verbose) echo "Config.txt is ".date('Y-m-d H:i:s',$new)." and record is ".date('Y-m-d H:i:s',$date)."\n";
             if (!$date || $new > $date)
             {
                 if ($this->verbose) echo "Reading $dir/config.txt\n";
@@ -837,7 +888,6 @@ class ImageGallery
     {
         $start = time();
         if ($this->verbose) echo "Building album pages.\n";
-        echo 'select * from albums' . ($this->force||$this->forcepages ? '' : ' where changed=1')."\n";
         foreach ($this->_db->query('select * from albums' . ($this->force||$this->forcepages ? '' : ' where changed=1'), PDO::FETCH_ASSOC) as $ta)
         {
             $this->fixAlbum($ta);
@@ -1463,23 +1513,26 @@ Require valid-user");
         if (!in_array('..', $excludes))
             $excludes[] = '..';
 
+        if ($this->verbose) echo "Copying $source\n";
         if (is_dir($source)) {
             $dir_handle = opendir($source);
             while ($file = readdir($dir_handle))
             {
                 if (!in_array($file, $excludes))
                 {
-                    if (is_dir($source . "/" . $file))
+                    if (is_dir($source . DIRECTORY_SEPARATOR . $file))
                     {
-                        if (!is_dir($dest . "/" . $file))
+                        if (!is_dir($dest . DIRECTORY_SEPARATOR . $file))
                         {
-                            mkdir($dest . "/" . $file, 0777, true);
+                            mkdir($dest . DIRECTORY_SEPARATOR . $file, 0777, true);
                         }
-                        $this->recursiveCopyDir($source . "/" . $file, $dest . "/" . $file, $excludes);
+                        $this->recursiveCopyDir($source . DIRECTORY_SEPARATOR . $file, $dest . DIRECTORY_SEPARATOR . $file, $excludes);
                     }
                     else
                     {
-                        copy($source . "/" . $file, $dest . "/" . $file);
+                        if (!is_dir($dest))
+                            mkdir($dest , 0777, true);
+                        copy($source . DIRECTORY_SEPARATOR . $file, $dest . DIRECTORY_SEPARATOR . $file);
                     }
                 }
             }
