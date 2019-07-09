@@ -1225,6 +1225,11 @@ Require valid-user");
                 file_put_contents($this->albumBasePath($album) . DIRECTORY_SEPARATOR . Utils::unicodeSanitizeFilename($image['title']) . '.' . $album['config']['generated_page_extension'], $contents);
             }
         }
+        if (count($images)>0 && $album['config']['gallery_zipfile'])
+        {
+            $zipurl = $this->buildZipFile($album);
+            $album['zip_url']=$album_url_prefix.$zipurl;
+        }
     }
 
     /**
