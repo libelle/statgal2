@@ -376,7 +376,7 @@ class ImageGallery
                     $latest = $this->getKeywords($row, $album['config']['enable_keywords'],
                         $album['config']['enable_date_index'],
                         $exclude,
-                        ($album['config']['album_name_keywords']?$this->getKeywordsFromTitle($album['title']):array())
+                        ($album['config']['album_name_keywords']?$this->getKeywordsFromTitle($album['title'],$exclude):array())
             );
             }
         }
@@ -392,9 +392,16 @@ class ImageGallery
      * @param $string
      * @return array
      */
-    public function getKeywordsFromTitle($string)
+    public function getKeywordsFromTitle($string,$exclude=array())
     {
-        return explode(' ',Utils::removeNoisewords($string));
+        $ret = array();
+        $keywords = explode(' ',Utils::removeNoisewords($string));
+        foreach($keywords as $tk)
+        {
+            if (! in_array(strtolower($tk),$exclude))
+                $ret[] = $tk;
+        }
+        return $ret;
     }
 
     /**
