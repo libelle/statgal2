@@ -115,6 +115,7 @@ class Utils {
 
     // from https://stackoverflow.com/questions/2021624/string-sanitizer-for-filename
     public static function unicodeSanitizeFilename($filename, $beautify=true) {
+        $filename = \ForceUTF8\Encoding::fixUTF8($filename);
         // sanitize filename
         $filename = preg_replace(
             '~
