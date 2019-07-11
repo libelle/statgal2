@@ -1193,6 +1193,19 @@ Require valid-user");
         $breadcrumbs = array_reverse($this->getAlbumBreadcrumbs($album));
         $breadcrumbs[] = array('url' => $album_url_prefix . 'index.' . $album['config']['generated_page_extension'], 'title' => $album['title']);
 
+        $keyword_virtual = $this->getKeywordVirtualAlbum();
+        $date_virtual = $this->getDateVirtualAlbum();
+        $toplinks = array();
+
+        if ($album['config']['create_keyword_pages'])
+        {
+             $toplinks[]=array('url' => $this->albumRelativeBaseUrl($album, $keyword_virtual) . 'index.' . $album['config']['generated_page_extension'], 'title' => 'Keywords');
+        }
+        if ($album['config']['create_date_index_pages'])
+        {
+            $toplinks[]=array('url' => $this->albumRelativeBaseUrl($album, $date_virtual) . 'index.' . $album['config']['generated_page_extension'], 'title' => 'Dates');
+        }
+
         ob_start();
         require($album['config']['template_gallery']);
         $contents = ob_get_contents();
@@ -1202,7 +1215,6 @@ Require valid-user");
         if (!empty($album['config']['template_image']))
         {
             // create image pages
-            $keyword_virtual = $this->getKeywordVirtualAlbum();
             foreach ($images as $idx=>$image)
             {
                 if ($this->verbose) echo "Creating image page for {$image['title']}\n";
@@ -1222,7 +1234,6 @@ Require valid-user");
                 $image['prev'] = $images[($idx>1?$idx-1:count($images)-1)];
                 if ($album['config']['create_date_index_pages'])
                 {
-                    $date_virtual = $this->getDateVirtualAlbum();
                     $image['date_url'] = $this->albumRelativeBaseUrl($album, $date_virtual) .date('Y-m',$image['image_date']) . '.' . $album['config']['generated_page_extension'];;
                 }
                 ob_start();

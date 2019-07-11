@@ -49,16 +49,37 @@ a,a:visited,a:active {
 a:hover {
     text-decoration: underline;
 }
+ul.breadcrumb {
+  display: inline-block;
+  float: left;
+}
 
 ul.breadcrumb li {
     list-style: none;
     display: inline;
-    padding-right: 1em
+    padding-right: 1em;
 }
 
-ul.breadcrumb li:before {
-    content: "»"
+ul.breadcrumb li:before
+{
+      content: "»";
 }
+
+ul.toplinks {
+  display: inline-block;
+  float: right;
+}
+
+ul.toplinks li {
+    list-style: none;
+    display: inline;
+    padding-right: 1em;
+}
+
+ul.toplinks li:before {
+      content: "•";
+}
+
 
 header {
     width: 100%

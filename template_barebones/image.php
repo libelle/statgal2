@@ -4,6 +4,12 @@ require('_header.php');
 ?>
   <h2><?php echo $this->out($image, 'title'); ?></h2>
   <div class="image">
+        <nav>
+      <a class="left" href="<?php echo $this->out($image, 'prev.page_url') ?>">&lt; Previous
+        (<?php echo $this->out($image, 'prev.title') ?>)</a>
+      <a class="right" href="<?php echo $this->out($image, 'next.page_url') ?>">Next
+        (<?php echo $this->out($image, 'next.title') ?>) &gt;</a>
+    </nav>
     <?php if ($this->isVideo($image)) {
       ?>
       <video controls>
