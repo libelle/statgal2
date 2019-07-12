@@ -70,6 +70,7 @@ class ImageGallery
         $this->buildKeywordPages();
         $this->buildDatePages();
         $this->buildTemplateCopies();
+        if ($this->verbose) $this->stats();
         $this->closeDb();
         if ($this->verbose) echo "Generation completed in " . (time() - $start) . " seconds.\n";
     }
@@ -155,6 +156,21 @@ class ImageGallery
     public function closeDb()
     {
         $this->_db = null;
+    }
+
+    /**
+     * Dispaly some interesting[?] stats to the user
+     */
+    public function stats()
+    {
+        $alb = $this->_db->query('SELECT count(*) as cnt FROM albums')->fetch();
+        $img = $this->_db->query('SELECT count(*) as cnt from images')->fetch();
+        $kw = $this->_db->query('SELECT count(*) as cnt from keywords')->fetch();
+        $albstats = $this->_db->query('select min(cnt) as mmin ,max(cnt) as mmax,avg(cnt) as aavg from (select count(*) as cnt from images group by parent)')->fetch();
+        $kwstats = $this->_db->query('select min(cnt) as mmin,max(cnt) as mmax,avg(cnt) as aavg from (select count(*) as cnt from keywords_images group by image_id)')->fetch();
+        echo "{$img['cnt']} images in {$alb['cnt']} albums, described by {$kw['cnt']} keywords\n";
+        echo "Pictures per album (min, max, avg): {$albstats['mmin']}, {$albstats['mmax']}, {$albstats['aavg']}\n";
+        echo "Keywords per image (min, max, avg): {$kwstats['mmin']}, {$kwstats['mmax']}, {$kwstats['aavg']}\n";
     }
 
     /**
