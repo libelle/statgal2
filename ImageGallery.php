@@ -53,7 +53,7 @@ class ImageGallery
     // commonly used prepared statements, e.g. in recursive fns
     protected $_dbr = array();
     protected $_sizes = array('thumb', 'display', 'full');
-    protected $_root_conf=false;
+    protected $_root_conf = false;
 
     /**
      * Dooo it!
@@ -65,6 +65,7 @@ class ImageGallery
         $this->init();
         $this->getRoot();
         $this->getFiles();
+        $this->buildDateIndex();
         $this->buildSizedImages();
         $this->buildAlbumPages();
         $this->buildKeywordPages();
@@ -72,7 +73,7 @@ class ImageGallery
         $this->buildTemplateCopies();
         if ($this->verbose) $this->stats();
         $this->closeDb();
-        if ($this->verbose) echo "Generation completed in " . (time() - $start) . " seconds.\n";
+        if ($this->verbose) echo "Generation completed in " . Utils::timedelta($start, time()) . ".\n";
     }
 
     /**
@@ -91,7 +92,7 @@ class ImageGallery
         }
         if (empty($this->ffmpegpath))
         {
-            $ffmpeg = exec ('which ffmpeg');
+            $ffmpeg = exec('which ffmpeg');
             if (empty($ffmpeg))
                 error_log('Cannot determine ffmpeg path; will not be able to convert videos');
             else
@@ -99,7 +100,7 @@ class ImageGallery
         }
         if (empty($this->ffprobepath))
         {
-            $ffprobe = exec ('which ffprobe');
+            $ffprobe = exec('which ffprobe');
             if (empty($ffprobe))
                 error_log('Cannot determine ffprobe path; will not be able to scale videos');
             else
@@ -148,6 +149,7 @@ class ImageGallery
         $this->_dbr['set_ym_image'] = $this->_db->prepare('insert into yearmonths_images (yearmonth_id,image_id) values (:yearmonth_id,:image_id)');
         $this->_dbr['update_image'] = $this->_db->prepare('update images set image_date=:image_date,title=:title,gallery_spec=:gallery_spec where id=:id');
         $this->_dbr['update_image_size'] = $this->_db->prepare('update images set fullsize=:fullsize where id=:id');
+        $this->_dbr['update_image_date'] = $this->_db->prepare('update images set image_date=:image_date where id=:id');
     }
 
     /**
@@ -185,7 +187,7 @@ class ImageGallery
 
         $this->_db->exec('update albums set changed=0');
         $this->recursiveBuildFlatDirlist($this->source);
-        if ($this->verbose) echo "Scan done in " . (time() - $start) . " seconds.\n";
+        if ($this->verbose) echo "Scan done in " . Utils::timedelta($start, time()) . ".\n";
     }
 
     /**
@@ -200,21 +202,19 @@ class ImageGallery
             $this->fixAlbum($ta);
             $this->getDirImages($ta);
         }
-        if ($this->verbose) echo "Scan done in " . (time() - $start) . " seconds.\n";
+        if ($this->verbose) echo "Scan done in " . Utils::timedelta($start, time()) . ".\n";
     }
 
     /**
      * Extract keywords and/or dates from a file
      * @param $file string filespec
      * @param $get_keywords boolean should we get keywords?
-     * @param $build_date_index boolean should we get date info?
      * @param $exclude array of keywords to ignore
      * @return bool|false|int|mixed
      */
-    public function getKeywords($file, $get_keywords, $build_date_index, $exclude, $add=array())
+    public function getKeywords($file, $get_keywords, $exclude, $add = array())
     {
         if ($this->verbose) echo "Scanning file for" . ($get_keywords ? " keywords and" : "") . " EXIF date/title.\n";
-        $latest = false;
         if ($this->isVideo($file))
         {
             $spec = pathinfo($file['spec'], PATHINFO_FILENAME);
@@ -238,16 +238,15 @@ class ImageGallery
                 $this->_dbr['update_image']->execute(array(':image_date' => $date, ':title' => $filetitle, ':id' => $file['id'], ':gallery_spec' => $spec));
                 $file['image_date'] = $date;
             }
-            if (!$latest || $file['image_date'] > $latest)
-                $latest = $file['image_date'];
+
             if ($get_keywords)
             {
-                foreach($add as $tk)
+                foreach ($add as $tk)
                 {
                     $keywords['keywords'][] = $tk;
                 }
                 $lowered = array_map('strtolower', $keywords['keywords']);
-                $keywords['keywords']=array_intersect_key($keywords['keywords'], array_unique($lowered));
+                $keywords['keywords'] = array_intersect_key($keywords['keywords'], array_unique($lowered));
                 foreach (array('keywords', 'make', 'model') as $tkwl)
                 {
                     foreach ($keywords[$tkwl] as $tkw)
@@ -262,7 +261,8 @@ class ImageGallery
                             $this->_dbr['get_kw']->execute(array(':safekeyword' => $safekeyword));
                             $row = $this->_dbr['get_kw']->fetch(PDO::FETCH_ASSOC);
                             $this->_dbr['set_kw_image']->execute(array(':keyword_id' => $row['id'], ':image_id' => $file['id']));
-                        } else
+                        }
+                        else
                         {
                             $this->_dbr['get_kw_image']->execute(array(':keyword_id' => $row['id'], ':image_id' => $file['id']));
                             $exists = $this->_dbr['get_kw_image']->fetch(PDO::FETCH_ASSOC);
@@ -272,27 +272,7 @@ class ImageGallery
                     }
                 }
             }
-            if ($build_date_index)
-            {
-                $ym = array(':year' => date('Y', $date), ':month' => date('m', $date));
-                $this->_dbr['get_ym']->execute($ym);
-                $row = $this->_dbr['get_ym']->fetch(PDO::FETCH_ASSOC);
-                if (!$row)
-                {
-                    $this->_dbr['set_ym']->execute($ym);
-                    $this->_dbr['get_ym']->execute($ym);
-                    $row = $this->_dbr['get_ym']->fetch(PDO::FETCH_ASSOC);
-                    $this->_dbr['set_ym_image']->execute(array(':yearmonth_id' => $row['id'], ':image_id' => $file['id']));
-                } else
-                {
-                    $this->_dbr['get_ym_image']->execute(array(':yearmonth_id' => $row['id'], ':image_id' => $file['id']));
-                    $exists = $this->_dbr['get_ym_image']->fetch(PDO::FETCH_ASSOC);
-                    if (!$exists)
-                        $this->_dbr['set_ym_image']->execute(array(':yearmonth_id' => $row['id'], ':image_id' => $file['id']));
-                }
-            }
         }
-        return $latest;
     }
 
     /**
@@ -352,7 +332,6 @@ class ImageGallery
 
         $update_image = $this->_db->prepare('UPDATE images set file_date=:file_date where id=:id');
         $album_changed = false;
-        $latest = false;
         foreach ($idir as $key => $value)
         {
             $file_changed = false;
@@ -374,7 +353,8 @@ class ImageGallery
                         $row = $this->_dbr['get_image']->fetch(PDO::FETCH_ASSOC);
                         $album_changed = true;
                         $file_changed = true;
-                    } else
+                    }
+                    else
                     {
                         if (!$row['file_date'] || $new > $row['file_date'])
                         {
@@ -389,16 +369,15 @@ class ImageGallery
             {
                 // do keywords
                 if (!empty($this->exivpath))
-                    $latest = $this->getKeywords($row, $album['config']['enable_keywords'],
-                        $album['config']['enable_date_index'],
+                {
+                    $this->getKeywords($row, $album['config']['enable_keywords'],
                         $exclude,
-                        ($album['config']['album_name_keywords']?$this->getKeywordsFromTitle($album['title'],$exclude):array())
-            );
+                        ($album['config']['album_name_keywords'] ? $this->getKeywordsFromTitle($album['title'], $exclude) : array())
+                    );
+                }
             }
         }
 
-        if ($latest && (empty($album['latest_date']) || $latest > $album['latest_date']))
-            $this->_db->prepare('UPDATE albums set latest_date=:latest_date where id=:id')->execute(array(':id'=>$album['id'],':latest_date'=>$latest));
         if ($album_changed)
             $this->_db->prepare('UPDATE albums set changed=1 where id=:id')->execute(array(':id' => $album['id']));
     }
@@ -408,13 +387,13 @@ class ImageGallery
      * @param $string
      * @return array
      */
-    public function getKeywordsFromTitle($string,$exclude=array())
+    public function getKeywordsFromTitle($string, $exclude = array())
     {
         $ret = array();
-        $keywords = explode(' ',Utils::removeNoisewords($string));
-        foreach($keywords as $tk)
+        $keywords = explode(' ', Utils::removeNoisewords($string));
+        foreach ($keywords as $tk)
         {
-            if (! in_array(strtolower($tk),$exclude))
+            if (!in_array(strtolower($tk), $exclude))
                 $ret[] = $tk;
         }
         return $ret;
@@ -436,7 +415,7 @@ class ImageGallery
      */
     public function isVideo($image)
     {
-        return in_array(strtolower(pathinfo($image['spec'],PATHINFO_EXTENSION)),array('mov','mp4','mpeg'));
+        return in_array(strtolower(pathinfo($image['spec'], PATHINFO_EXTENSION)), array('mov', 'mp4', 'mpeg'));
     }
 
     /**
@@ -446,7 +425,7 @@ class ImageGallery
      */
     public function albumBasePath($album)
     {
-        $rel_spec = preg_replace('/^'.$this->source.'/', '', $album['spec']);
+        $rel_spec = preg_replace('/^' . $this->source . '/', '', $album['spec']);
         if (substr($rel_spec, 0, 1) === DIRECTORY_SEPARATOR)
             $rel_spec = substr($rel_spec, 1);
         return $album['config']['destination_directory'] . DIRECTORY_SEPARATOR . $rel_spec;
@@ -475,8 +454,8 @@ class ImageGallery
     public function getVirtualAlbum($type)
     {
         $base = $this->getRootAlbum();
-        $base['parent']=1;
-        $base['title']=$type;
+        $base['parent'] = 1;
+        $base['title'] = $type;
         $base['spec'] = $this->source . DIRECTORY_SEPARATOR . strtolower($type);
         return $base;
     }
@@ -511,9 +490,9 @@ class ImageGallery
 
         if ($reference['config']['base_url'] == '*')
         {
-            $ret = Utils::relPath($reference['spec'],$target['spec']);
+            $ret = Utils::relPath($reference['spec'], $target['spec']);
             if (!empty($ret))
-                $ret.='/';
+                $ret .= '/';
         }
         else
         {
@@ -521,13 +500,13 @@ class ImageGallery
             $prefix = '';
             if (!empty($reference['config']['base_url']))
                 $prefix = $reference['config']['base_url'];
-            if (substr($prefix,-1,1)!='/')
-                    $prefix .='/';
+            if (substr($prefix, -1, 1) != '/')
+                $prefix .= '/';
 
             if (substr($rel_spec, 0, 1) == '/')
                 $rel_spec = substr($rel_spec, 1);
             $ret = $prefix . $rel_spec;
-            if (substr($ret,-1,1)!=='/')
+            if (substr($ret, -1, 1) !== '/')
                 $ret = "$ret/";
         }
         return $ret;
@@ -543,7 +522,7 @@ class ImageGallery
     {
         $base_path = $this->albumBasePath($album);
 
-        foreach ($this->_sizes as $idx=>$size)
+        foreach ($this->_sizes as $idx => $size)
         {
             $dest = $base_path . DIRECTORY_SEPARATOR . $size;
             if (!is_dir($dest))
@@ -552,13 +531,13 @@ class ImageGallery
                 mkdir($dest, 0755, true);
             }
 
-            if (! $this->isVideo($image))
+            if (!$this->isVideo($image))
             {
                 $size = $this->buildScaledImage($image['spec'],
                     $dest . DIRECTORY_SEPARATOR . $image['gallery_spec'],
                     $album['config'][$size . '_size'],
                     $album['config'][$size . '_quality'],
-                    ($idx==0 && ! empty($album['config']['thumb_aspect'])?$album['config']['thumb_aspect']:'')
+                    ($idx == 0 && !empty($album['config']['thumb_aspect']) ? $album['config']['thumb_aspect'] : '')
                 );
             }
             else if ($idx == 0)
@@ -567,7 +546,7 @@ class ImageGallery
                     $dest . DIRECTORY_SEPARATOR . $image['gallery_spec'],
                     $album['config'][$size . '_size'],
                     $album['config'][$size . '_quality'],
-                    ! empty($album['config']['thumb_aspect'])?$album['config']['thumb_aspect']:''
+                    !empty($album['config']['thumb_aspect']) ? $album['config']['thumb_aspect'] : ''
                 );
             }
             else
@@ -578,7 +557,7 @@ class ImageGallery
             }
         }
         // biggest is last
-        $this->_dbr['update_image_size']->execute(array(':fullsize'=>$size,':id'=>$image['id']));
+        $this->_dbr['update_image_size']->execute(array(':fullsize' => $size, ':id' => $image['id']));
 
     }
 
@@ -588,23 +567,23 @@ class ImageGallery
      * @param $dest string destination spec
      * @param $size integer width of thumbnail
      */
-    public function buildVideoThumbnail($src, $dest, $size, $quality, $aspect='')
+    public function buildVideoThumbnail($src, $dest, $size, $quality, $aspect = '')
     {
         if ($this->ffmpegpath)
         {
             if ($this->verbose) echo "Creating video thumbnail $dest with max dimension $size\n";
-            $cmd = $this->ffmpegpath . ' -i ' . escapeshellarg($src) . ' -vf "thumbnail,scale='.$size.
-                ':-1" -frames:v 1 ' . escapeshellarg($src.'_VT.jpg');
+            $cmd = $this->ffmpegpath . ' -i ' . escapeshellarg($src) . ' -vf "thumbnail,scale=' . $size .
+                ':-1" -frames:v 1 ' . escapeshellarg($src . '_VT.jpg');
             exec($cmd);
             $this->buildScaledImage(
-                $src.'_VT.jpg',
-                pathinfo($dest,PATHINFO_DIRNAME).DIRECTORY_SEPARATOR.
-                        pathinfo($dest,PATHINFO_FILENAME).'.jpg',
+                $src . '_VT.jpg',
+                pathinfo($dest, PATHINFO_DIRNAME) . DIRECTORY_SEPARATOR .
+                pathinfo($dest, PATHINFO_FILENAME) . '.jpg',
                 $size,
                 $quality,
                 $aspect
-                );
-            unlink($src.'_VT.jpg');
+            );
+            unlink($src . '_VT.jpg');
         }
         else
             echo "No ffmpeg path, so no thumbnail for you, my friend.\n";
@@ -625,7 +604,7 @@ class ImageGallery
             $res = shell_exec($cmd);
             if (!empty($res))
             {
-                foreach (explode("\n",$res) as $tr)
+                foreach (explode("\n", $res) as $tr)
                 {
                     if (strpos($tr, 'x') !== false)
                     {
@@ -641,14 +620,14 @@ class ImageGallery
                                 $scale = "-2:$size";
                         }
                         $cmd = $this->ffmpegpath . ' -i ' . escapeshellarg($src) .
-                            ' -vcodec h264 -acodec aac -strict -2 '.
-                            ($scale ? ' -vf "scale=' . $scale . '"' : '') . ' ' . pathinfo($dest,PATHINFO_DIRNAME).
-                            DIRECTORY_SEPARATOR.pathinfo($dest, PATHINFO_FILENAME) . '.mp4';
+                            ' -vcodec h264 -acodec aac -strict -2 ' .
+                            ($scale ? ' -vf "scale=' . $scale . '"' : '') . ' ' . pathinfo($dest, PATHINFO_DIRNAME) .
+                            DIRECTORY_SEPARATOR . pathinfo($dest, PATHINFO_FILENAME) . '.mp4';
                         exec($cmd);
                         $cmd = $this->ffmpegpath . ' -y -i ' . escapeshellarg($src) .
-                                ($scale ? ' -vf "scale=' . $scale . '"' : '') .
-                            ' -c:v libvpx-vp9 -crf 30 -b:v 0 '.pathinfo($dest,PATHINFO_DIRNAME).
-                            DIRECTORY_SEPARATOR.pathinfo($dest, PATHINFO_FILENAME) . '.webm';
+                            ($scale ? ' -vf "scale=' . $scale . '"' : '') .
+                            ' -c:v libvpx-vp9 -crf 30 -b:v 0 ' . pathinfo($dest, PATHINFO_DIRNAME) .
+                            DIRECTORY_SEPARATOR . pathinfo($dest, PATHINFO_FILENAME) . '.webm';
                         exec($cmd);
                     }
                 }
@@ -666,7 +645,7 @@ class ImageGallery
      */
     public function buildLabeledImage($album, $image, $keywords)
     {
-        if (! $this->isVideo($image))
+        if (!$this->isVideo($image))
         {
             if ($this->verbose) echo "Creating keyword-labeled image\n";
             $base_path = $this->albumBasePath($album);
@@ -781,7 +760,8 @@ class ImageGallery
             if ($res && $res['config'])
             {
                 $config = json_decode($res['config'], true);
-            } else
+            }
+            else
             {
                 $dspieces = explode(DIRECTORY_SEPARATOR, $dir_str);
                 array_pop($dspieces);
@@ -817,35 +797,36 @@ class ImageGallery
             'full_size' => 10000,
             'full_quality' => 100,
             'enable_keywords' => true,
-            'create_labeled_image'=>false,
-            'enable_date_index'=>true,
-            'create_date_index_pages'=>true,
-            'font_path'=>'/Library/fonts/Arial.ttf',
+            'create_labeled_image' => false,
+            'enable_date_index' => true,
+            'create_date_index_pages' => true,
+            'font_path' => '/Library/fonts/Arial.ttf',
             'create_keyword_pages' => true,
-            'download_largest'=>true,
-            'gallery_zipfile'=>true,
+            'download_largest' => true,
+            'gallery_zipfile' => true,
             'exclude_keywords' => '',
-            'exclude_from_tagged'=>'NIKON,NIKON CORPORATION,NIKON D70,E995,NIKON D90,Canon EOS DIGITAL REBEL,Canon,n/a',
+            'exclude_from_tagged' => 'NIKON,NIKON CORPORATION,NIKON D70,E995,NIKON D90,Canon EOS DIGITAL REBEL,Canon,n/a',
             'template_index' => 'template_barebones/gallery.php',
             'template_gallery' => 'template_barebones/gallery.php',
             'template_image' => 'template_barebones/image.php',
             'template_keyword' => 'template_barebones/keyword.php',
             'template_keywords' => 'template_barebones/keywords.php',
-            'template_date'=>'template_barebones/date.php',
-            'template_dates'=>'template_barebones/dates.php',
-            'template_copy'=>'template_barebones/style.css',
+            'template_date' => 'template_barebones/date.php',
+            'template_dates' => 'template_barebones/dates.php',
+            'template_copy' => 'template_barebones/style.css',
             'generated_page_extension' => 'html',
             'allowed_extensions' => 'gif,jpg,png,jpeg,mov,mp4,mpeg',
-            'image_sort'=>'date',
-            'image_sort_dir'=>'asc',
-            'subalbum_sort'=>'date',
-            'subalbum_sort_dir'=>'desc',
+            'image_sort' => 'date',
+            'image_sort_dir' => 'asc',
+            'subalbum_sort' => 'date',
+            'subalbum_sort_dir' => 'desc',
             'auth_realm' => '',
             'auth_users' => '',
-            'gallery_thumbs'=>'random',
-            'rename_images_by_gallery'=>true,
-            'thumb_aspect'=>'',
-            'album_name_keywords'=>true
+            'gallery_thumbs' => 'random',
+            'rename_images_by_gallery' => true,
+            'thumb_aspect' => '',
+            'album_name_keywords' => true,
+            'video_date_fix' => true
         );
     }
 
@@ -897,9 +878,11 @@ class ImageGallery
                         }
                     }
                 }
-            } else
+            }
+            else
                 $new = null;
-        } else if (!$date)
+        }
+        else if (!$date)
             $new = time();
         return array($new, $config);
     }
@@ -911,7 +894,7 @@ class ImageGallery
     {
         $start = time();
         if ($this->verbose) echo "Building album pages.\n";
-        foreach ($this->_db->query('select * from albums' . ($this->force||$this->forcepages ? '' : ' where changed=1'), PDO::FETCH_ASSOC) as $ta)
+        foreach ($this->_db->query('select * from albums' . ($this->force || $this->forcepages ? '' : ' where changed=1'), PDO::FETCH_ASSOC) as $ta)
         {
             $this->fixAlbum($ta);
             $this->buildAlbumPage($ta);
@@ -920,8 +903,109 @@ class ImageGallery
                 $this->buildBasicAuth($ta);
             }
         }
-        if ($this->verbose) echo "Done in " . (time() - $start) . " seconds.\n";
+        if ($this->verbose) echo "Done in " . Utils::timedelta($start, time()) . ".\n";
     }
+
+    /**
+     * Iterate through all albums, build date indices (after fixing video dates where needed)
+     */
+    public function buildDateIndex()
+    {
+        $start = time();
+        if ($this->verbose) echo "Handling Date Indices.\n";
+        foreach ($this->_db->query('select * from albums' . ($this->force ? '' : ' where changed=1'), PDO::FETCH_ASSOC) as $ta)
+        {
+            $this->fixAlbum($ta);
+            if ($ta['config']['video_date_fix'])
+            {
+                $this->fixVideoDatesForAlbum($ta);
+            }
+            if ($ta['config']['enable_date_index'])
+            {
+                $this->buildDateIndexForAlbum($ta);
+            }
+            $this->_db->prepare('UPDATE albums set latest_date=(select max(image_date) from images where parent=:id) where id=:id')->execute(array(':id' => $ta['id']));
+        }
+        if ($this->verbose) echo "Done in " . Utils::timedelta($start, time()) . ".\n";
+    }
+
+    public function buildDateIndexForAlbum($album)
+    {
+        if ($this->verbose) echo "Building date index for {$album['title']}\n";
+        foreach ($this->_db->query('select * from images where parent=' . $album['id'] . ' order by spec', PDO::FETCH_ASSOC) as $ti)
+        {
+            $ym = array(':year' => date('Y', $ti['image_date']), ':month' => date('m', $ti['image_date']));
+            $this->_dbr['get_ym']->execute($ym);
+            $row = $this->_dbr['get_ym']->fetch(PDO::FETCH_ASSOC);
+            if (!$row)
+            {
+                $this->_dbr['set_ym']->execute($ym);
+                $this->_dbr['get_ym']->execute($ym);
+                $row = $this->_dbr['get_ym']->fetch(PDO::FETCH_ASSOC);
+                $this->_dbr['set_ym_image']->execute(array(':yearmonth_id' => $row['id'], ':image_id' => $ti['id']));
+            }
+            else
+            {
+                $this->_dbr['get_ym_image']->execute(array(':yearmonth_id' => $row['id'], ':image_id' => $ti['id']));
+                $exists = $this->_dbr['get_ym_image']->fetch(PDO::FETCH_ASSOC);
+                if (!$exists)
+                    $this->_dbr['set_ym_image']->execute(array(':yearmonth_id' => $row['id'], ':image_id' => $ti['id']));
+            }
+        }
+    }
+
+    public function fixVideoDatesForAlbum($album)
+    {
+        if ($this->verbose) echo "Fixing video dates for {$album['title']}\n";
+        $imgs = array();
+        foreach ($this->_db->query('select * from images where parent=' . $album['id'] . ' order by spec', PDO::FETCH_ASSOC) as $ti)
+        {
+            $imgs[] = $ti;
+        }
+        $first = time();
+        $last = -1;
+        foreach ($imgs as $idx => $ti)
+        {
+            if (!$this->isVideo($ti))
+            {
+                if ($ti['image_date'] < $first)
+                    $first = $ti['image_date'];
+                else if ($ti['image_date'] > $last)
+                    $last = $ti['image_date'];
+            }
+        }
+        $total = count($imgs);
+        foreach ($imgs as $idx => $ti)
+        {
+            if ($this->isVideo($ti))
+            {
+                $prev_ind = $idx;
+                $prev = false;
+                while (!$prev && $prev_ind > -1)
+                {
+                    if (!$this->isVideo($imgs[$prev_ind]))
+                        $prev = $imgs[$prev_ind]['image_date'];
+                    else
+                        $prev_ind--;
+                }
+                if (!$prev)
+                    $prev = $first;
+                $next_ind = $idx;
+                $next = false;
+                while (!$next && $next_ind < $total)
+                {
+                    if (!$this->isVideo($imgs[$next_ind]))
+                        $next = $imgs[$next_ind]['image_date'];
+                    else
+                        $next_ind++;
+                }
+                if (!$next)
+                    $next = $last;
+                $this->_dbr['update_image_date']->execute(array(':image_date' => floor(($next + $prev) / 2), ':id' => $ti['id']));
+            }
+        }
+    }
+
 
     /**
      * Iterate through all albums and build the sized images where needed
@@ -935,7 +1019,7 @@ class ImageGallery
             $this->fixAlbum($ta);
             $this->buildSizedImagesForAlbum($ta);
         }
-        if ($this->verbose) echo "Done in " . (time() - $start) . " seconds.\n";
+        if ($this->verbose) echo "Done in " . Utils::timedelta($start, time()) . ".\n";
     }
 
     /**
@@ -994,11 +1078,11 @@ class ImageGallery
         }
         $password_spec = pathinfo($album['spec'], PATHINFO_BASENAME) . '.htpasswd';
         $password_loc = $album['config']['htpasswd_directory'] . DIRECTORY_SEPARATOR . $password_spec;
-        $password_loc = preg_replace('/\/+/','/',$password_loc);
+        $password_loc = preg_replace('/\/+/', '/', $password_loc);
         if (substr($password_loc, 0, 1) == '/')
             $password_rel = $password_loc; // absolute
         else
-            $password_rel = preg_replace('/\/+/','/',Utils::relPath(rtrim($this->albumBasePath($album), DIRECTORY_SEPARATOR), $album['config']['htpasswd_directory']) . $password_spec);
+            $password_rel = preg_replace('/\/+/', '/', Utils::relPath(rtrim($this->albumBasePath($album), DIRECTORY_SEPARATOR), $album['config']['htpasswd_directory']) . $password_spec);
 
 
         file_put_contents($password_loc, $htpasswd_file);
@@ -1055,13 +1139,16 @@ Require valid-user");
             if (!isset($album['config']['gallery_thumbs']) || !strcasecmp($album['config']['gallery_thumbs'], 'random'))
             {
                 $where_ord = 'and _ROWID_ >= (abs(random()) % (SELECT max(_ROWID_) FROM images where parent=' . $album['id'] . '))';
-            } else if (!strcasecmp($album['config']['gallery_thumbs'], 'alpha'))
+            }
+            else if (!strcasecmp($album['config']['gallery_thumbs'], 'alpha'))
             {
                 $where_ord = 'order by title';
-            } else if (!strcasecmp($album['config']['gallery_thumbs'], 'oldest'))
+            }
+            else if (!strcasecmp($album['config']['gallery_thumbs'], 'oldest'))
             {
                 $where_ord = 'order by image_date desc';
-            } else
+            }
+            else
             {
                 $where_ord = 'order by image_date asc';
             }
@@ -1072,13 +1159,13 @@ Require valid-user");
             if (!$ret)
             {
                 $subalb = $this->thumbSubAlbumForAlbum($album);
-                if (! $subalb)
+                if (!$subalb)
                     $nada = true;
                 else
-                    list($album,$ret) = $this->thumbImageForAlbum($subalb);
+                    list($album, $ret) = $this->thumbImageForAlbum($subalb);
             }
         }
-        return array($album,$ret);
+        return array($album, $ret);
     }
 
     /**
@@ -1091,13 +1178,16 @@ Require valid-user");
         if (!strcasecmp($album['config']['gallery_thumbs'], 'random'))
         {
             $where_ord = 'and _ROWID_ >= (abs(random()) % (SELECT max(_ROWID_) FROM albums where parent=' . $album['id'] . '))';
-        } else if (!strcasecmp($album['config']['gallery_thumbs'], 'alpha'))
+        }
+        else if (!strcasecmp($album['config']['gallery_thumbs'], 'alpha'))
         {
             $where_ord = 'order by title';
-        } else if (!strcasecmp($album['config']['gallery_thumbs'], 'oldest'))
+        }
+        else if (!strcasecmp($album['config']['gallery_thumbs'], 'oldest'))
         {
             $where_ord = 'order by latest_date desc';
-        } else
+        }
+        else
         {
             $where_ord = 'order by latest_date asc';
         }
@@ -1149,20 +1239,20 @@ Require valid-user");
         foreach ($this->_db->query('select * from images where parent=' . $album['id'], PDO::FETCH_ASSOC) as $ti)
         {
             $spec = pathinfo($ti['gallery_spec']);
-            foreach ($this->_sizes as $idx=>$size)
+            foreach ($this->_sizes as $idx => $size)
             {
                 // correct for video
-                $ti[$size . '_url'] = $album_url_prefix . $size . '/' . ($idx>0&&$this->isVideo($ti)?$spec['filename']:$spec['basename']);
+                $ti[$size . '_url'] = $album_url_prefix . $size . '/' . ($idx > 0 && $this->isVideo($ti) ? $spec['filename'] : $spec['basename']);
                 $ti['page_url'] = $album_url_prefix . Utils::unicodeSanitizeFilename($ti['title']) . '.' . $album['config']['generated_page_extension'];
             }
             $images[] = $ti;
         }
-        $this->sortImageList($album,$images);
+        $this->sortImageList($album, $images);
 
         if ($album['config']['gallery_zipfile'])
         {
             $zipurl = $this->buildZipFile($album);
-            $album['zip_url']=$album_url_prefix.$zipurl;
+            $album['zip_url'] = $album_url_prefix . $zipurl;
         }
 
         $subalbums = array();
@@ -1177,9 +1267,9 @@ Require valid-user");
         {
             $subalbums[$idx]['subalbum_count'] = $this->_db->query('select count(*) from albums where parent=' . $ta['id'])->fetchColumn();
             $subalbums[$idx]['image_count'] = $this->_db->query('select count(*) from images where parent=' . $ta['id'])->fetchColumn();
-            list ($thumbalb,$thumb) = $this->thumbImageForAlbum($ta);
+            list ($thumbalb, $thumb) = $this->thumbImageForAlbum($ta);
             if (!empty($thumb))
-                $subalbums[$idx]['thumb_url'] = $this->albumRelativeBaseUrl($album,$thumbalb).$this->_sizes[0].'/'.pathinfo($thumb['gallery_spec'],PATHINFO_BASENAME);
+                $subalbums[$idx]['thumb_url'] = $this->albumRelativeBaseUrl($album, $thumbalb) . $this->_sizes[0] . '/' . pathinfo($thumb['gallery_spec'], PATHINFO_BASENAME);
             else
                 $subalbums[$idx]['thumb_url'] = '';
         }
@@ -1194,7 +1284,8 @@ Require valid-user");
                 usort($subalbums, function ($a, $b) {
                     return ($a['latest_date'] > $b['latest_date'] ? -1 : 1);
                 });
-        } else
+        }
+        else
         {
             if ($album['config']['subalbum_sort_dir'] == 'asc')
                 usort($subalbums, function ($a, $b) {
@@ -1215,11 +1306,11 @@ Require valid-user");
 
         if ($album['config']['create_keyword_pages'])
         {
-             $toplinks[]=array('url' => $this->albumRelativeBaseUrl($album, $keyword_virtual) . 'index.' . $album['config']['generated_page_extension'], 'title' => 'Keywords');
+            $toplinks[] = array('url' => $this->albumRelativeBaseUrl($album, $keyword_virtual) . 'index.' . $album['config']['generated_page_extension'], 'title' => 'Keywords');
         }
         if ($album['config']['create_date_index_pages'])
         {
-            $toplinks[]=array('url' => $this->albumRelativeBaseUrl($album, $date_virtual) . 'index.' . $album['config']['generated_page_extension'], 'title' => 'Dates');
+            $toplinks[] = array('url' => $this->albumRelativeBaseUrl($album, $date_virtual) . 'index.' . $album['config']['generated_page_extension'], 'title' => 'Dates');
         }
 
         ob_start();
@@ -1231,7 +1322,7 @@ Require valid-user");
         if (!empty($album['config']['template_image']))
         {
             // create image pages
-            foreach ($images as $idx=>$image)
+            foreach ($images as $idx => $image)
             {
                 if ($this->verbose) echo "Creating image page for {$image['title']}\n";
                 $keywords = array();
@@ -1240,17 +1331,17 @@ Require valid-user");
                     $tk['url'] = $this->albumRelativeBaseUrl($album, $keyword_virtual) . Utils::unicodeSanitizeFilename($tk['keyword']) . '.' . $album['config']['generated_page_extension'];
                     $keywords[] = $tk;
                 }
-                $labeledspec = 'labeled/' . pathinfo($image['gallery_spec'],PATHINFO_FILENAME).'.jpg';
-                if ($album['config']['create_labeled_image'] && (!file_exists($this->albumBasePath($album).$labeledspec)||$this->force))
+                $labeledspec = 'labeled/' . pathinfo($image['gallery_spec'], PATHINFO_FILENAME) . '.jpg';
+                if ($album['config']['create_labeled_image'] && (!file_exists($this->albumBasePath($album) . $labeledspec) || $this->force))
                 {
-                    $this->buildLabeledImage($album,$image,$keywords);
-                    $image['labeled_url']=$album_url_prefix . $labeledspec;
+                    $this->buildLabeledImage($album, $image, $keywords);
+                    $image['labeled_url'] = $album_url_prefix . $labeledspec;
                 }
-                $image['next'] = $images[($idx+1==count($images)?0:$idx+1)];
-                $image['prev'] = $images[($idx>1?$idx-1:count($images)-1)];
+                $image['next'] = $images[($idx + 1 == count($images) ? 0 : $idx + 1)];
+                $image['prev'] = $images[($idx > 1 ? $idx - 1 : count($images) - 1)];
                 if ($album['config']['create_date_index_pages'])
                 {
-                    $image['date_url'] = $this->albumRelativeBaseUrl($album, $date_virtual) .date('Y-m',$image['image_date']) . '.' . $album['config']['generated_page_extension'];;
+                    $image['date_url'] = $this->albumRelativeBaseUrl($album, $date_virtual) . date('Y-m', $image['image_date']) . '.' . $album['config']['generated_page_extension'];;
                 }
                 ob_start();
                 require($album['config']['template_image']);
@@ -1259,10 +1350,10 @@ Require valid-user");
                 file_put_contents($this->albumBasePath($album) . DIRECTORY_SEPARATOR . Utils::unicodeSanitizeFilename($image['title']) . '.' . $album['config']['generated_page_extension'], $contents);
             }
         }
-        if (count($images)>0 && $album['config']['gallery_zipfile'])
+        if (count($images) > 0 && $album['config']['gallery_zipfile'])
         {
             $zipurl = $this->buildZipFile($album);
-            $album['zip_url']=$album_url_prefix.$zipurl;
+            $album['zip_url'] = $album_url_prefix . $zipurl;
         }
     }
 
@@ -1281,11 +1372,11 @@ Require valid-user");
      * @param $album
      * @return mixed|string
      */
-    public function rootAlbum($attr,$album)
+    public function rootAlbum($attr, $album)
     {
         $root = $this->getRootAlbum();
-        $root['url']=$this->albumRelativeBaseUrl($album,$root);
-        return $this->out($root,$attr);
+        $root['url'] = $this->albumRelativeBaseUrl($album, $root);
+        return $this->out($root, $attr);
     }
 
     /**
@@ -1301,7 +1392,7 @@ Require valid-user");
         $base_path = $this->albumBasePath($album) . DIRECTORY_SEPARATOR . $path;
         $spec = Utils::unicodeSanitizeFilename($album['title']) . '.zip';
 
-        if (!file_exists($this->albumBasePath($album) .DIRECTORY_SEPARATOR. $spec) || $album['changed'] || $this->force)
+        if (!file_exists($this->albumBasePath($album) . DIRECTORY_SEPARATOR . $spec) || $album['changed'] || $this->force)
         {
             if (is_dir($base_path))
             {
@@ -1332,7 +1423,8 @@ Require valid-user");
                     if ($res !== TRUE)
                         $spec = false;
                 }
-            } else
+            }
+            else
                 $spec = false;
         }
         return $spec;
@@ -1383,7 +1475,7 @@ Require valid-user");
             $this->fixAlbum($ta);
             if ($ta['config']['create_date_index_pages'])
                 $dw = true;
-            $albums[$ta['id']]=$ta;
+            $albums[$ta['id']] = $ta;
         }
         if ($dw)
         {
@@ -1405,36 +1497,38 @@ Require valid-user");
 
             foreach ($this->_db->query('select * from yearmonths', PDO::FETCH_ASSOC) as $ty)
             {
-                $ty['page_url']=$this->albumRelativeBaseUrl($date_album,$date_album).
-                    Utils::unicodeSanitizeFilename($ty['year'].'-'.sprintf('%02d',$ty['month'])) . '.' . $date_album['config']['generated_page_extension'];
-                $dates[]=$ty;
+                $ty['page_url'] = $this->albumRelativeBaseUrl($date_album, $date_album) .
+                    Utils::unicodeSanitizeFilename($ty['year'] . '-' . sprintf('%02d', $ty['month'])) . '.' . $date_album['config']['generated_page_extension'];
+                $dates[] = $ty;
             }
-            usort($dates,function($a,$b){return strcasecmp($a['year'].'-'.$a['month'],$b['year'].'-'.$b['month']);});
-            foreach($dates as $idx=>$date)
+            usort($dates, function ($a, $b) {
+                return strcasecmp($a['year'] . '-' . $a['month'], $b['year'] . '-' . $b['month']);
+            });
+            foreach ($dates as $idx => $date)
             {
                 $album = $date_album;
                 $images = array();
                 foreach ($this->_db->query('select i.title,i.spec,i.parent,i.gallery_spec from images i,yearmonths_images iy where i.id=iy.image_id and iy.yearmonth_id=' . $date['id'], PDO::FETCH_ASSOC) as $ti)
                 {
                     $img_album = $albums[$ti['parent']];
-                    $ti['page_url']=$this->albumRelativeBaseUrl($date_album,$img_album).
+                    $ti['page_url'] = $this->albumRelativeBaseUrl($date_album, $img_album) .
                         Utils::unicodeSanitizeFilename($ti['title']) . '.' . $img_album['config']['generated_page_extension'];
                     // correct for video
-                    $ti['thumb_url']=$this->albumRelativeBaseUrl($date_album,$img_album).$this->_sizes[0].
-                        '/'.($this->isVideo($ti)?pathinfo($ti['gallery_spec'],PATHINFO_FILENAME).'.jpg':pathinfo($ti['gallery_spec'],PATHINFO_BASENAME));
-                    $ti['album_url']=$this->albumRelativeBaseUrl($date_album,$img_album).'index.'.$img_album['config']['generated_page_extension'];
-                    $ti['album_title']=$img_album['title'];
+                    $ti['thumb_url'] = $this->albumRelativeBaseUrl($date_album, $img_album) . $this->_sizes[0] .
+                        '/' . ($this->isVideo($ti) ? pathinfo($ti['gallery_spec'], PATHINFO_FILENAME) . '.jpg' : pathinfo($ti['gallery_spec'], PATHINFO_BASENAME));
+                    $ti['album_url'] = $this->albumRelativeBaseUrl($date_album, $img_album) . 'index.' . $img_album['config']['generated_page_extension'];
+                    $ti['album_title'] = $img_album['title'];
                     $images[] = $ti;
                 }
-                $dates[$idx]['count']=count($images);
-                $album['title']=Utils::month($date['month']).' '.$date['year'];
-                $album['show_album']=1;
-                $album['no-zip']=1;
+                $dates[$idx]['count'] = count($images);
+                $album['title'] = Utils::month($date['month']) . ' ' . $date['year'];
+                $album['show_album'] = 1;
+                $album['no-zip'] = 1;
                 ob_start();
                 require($album['config']['template_date']);
                 $contents = ob_get_contents();
                 ob_end_clean();
-                file_put_contents($dest . DIRECTORY_SEPARATOR . Utils::unicodeSanitizeFilename($date['year'].'-'.sprintf('%02d',$date['month'])) . '.' . $date_album['config']['generated_page_extension'], $contents);
+                file_put_contents($dest . DIRECTORY_SEPARATOR . Utils::unicodeSanitizeFilename($date['year'] . '-' . sprintf('%02d', $date['month'])) . '.' . $date_album['config']['generated_page_extension'], $contents);
             }
 
             $album = $date_album;
@@ -1445,7 +1539,7 @@ Require valid-user");
             file_put_contents($dest . DIRECTORY_SEPARATOR . 'index.' . $date_album['config']['generated_page_extension'], $contents);
 
         }
-        if ($this->verbose) echo "Done in " . (time() - $start) . " seconds.\n";
+        if ($this->verbose) echo "Done in " . Utils::timedelta($start, time()) . ".\n";
     }
 
     /**
@@ -1462,7 +1556,7 @@ Require valid-user");
             $this->fixAlbum($ta);
             if ($ta['config']['create_keyword_pages'])
                 $kw = true;
-            $albums[$ta['id']]=$ta;
+            $albums[$ta['id']] = $ta;
         }
         if ($kw)
         {
@@ -1484,30 +1578,32 @@ Require valid-user");
 
             foreach ($this->_db->query('select * from keywords', PDO::FETCH_ASSOC) as $tk)
             {
-                $tk['page_url']=$this->albumRelativeBaseUrl($keyword_album,$keyword_album).
+                $tk['page_url'] = $this->albumRelativeBaseUrl($keyword_album, $keyword_album) .
                     Utils::unicodeSanitizeFilename($tk['safekeyword']) . '.' . $keyword_album['config']['generated_page_extension'];
-                $keywords[]=$tk;
+                $keywords[] = $tk;
             }
-            usort($keywords,function($a,$b){return strcasecmp($a['keyword'],$b['keyword']);});
-            foreach($keywords as $idx=>$keyword)
+            usort($keywords, function ($a, $b) {
+                return strcasecmp($a['keyword'], $b['keyword']);
+            });
+            foreach ($keywords as $idx => $keyword)
             {
                 $album = $keyword_album;
                 $images = array();
                 foreach ($this->_db->query('select i.title,i.spec,i.parent,i.gallery_spec from images i,keywords_images ik where i.id=ik.image_id and ik.keyword_id=' . $keyword['id'], PDO::FETCH_ASSOC) as $ti)
                 {
                     $img_album = $albums[$ti['parent']];
-                    $ti['page_url']=$this->albumRelativeBaseUrl($keyword_album,$img_album).
+                    $ti['page_url'] = $this->albumRelativeBaseUrl($keyword_album, $img_album) .
                         Utils::unicodeSanitizeFilename($ti['title']) . '.' . $img_album['config']['generated_page_extension'];
-                    $ti['thumb_url']=$this->albumRelativeBaseUrl($keyword_album,$img_album).$this->_sizes[0].
-                        '/'.($this->isVideo($ti)?pathinfo($ti['gallery_spec'],PATHINFO_FILENAME).'.jpg':pathinfo($ti['gallery_spec'],PATHINFO_BASENAME));
-                    $ti['album_url']=$this->albumRelativeBaseUrl($keyword_album,$img_album).'index.'.$img_album['config']['generated_page_extension'];
-                    $ti['album_title']=$img_album['title'];
+                    $ti['thumb_url'] = $this->albumRelativeBaseUrl($keyword_album, $img_album) . $this->_sizes[0] .
+                        '/' . ($this->isVideo($ti) ? pathinfo($ti['gallery_spec'], PATHINFO_FILENAME) . '.jpg' : pathinfo($ti['gallery_spec'], PATHINFO_BASENAME));
+                    $ti['album_url'] = $this->albumRelativeBaseUrl($keyword_album, $img_album) . 'index.' . $img_album['config']['generated_page_extension'];
+                    $ti['album_title'] = $img_album['title'];
                     $images[] = $ti;
                 }
-                $keywords[$idx]['count']=count($images);
-                $album['title']=$keyword['keyword'];
-                $album['show_album']=1;
-                $album['no-zip']=1;
+                $keywords[$idx]['count'] = count($images);
+                $album['title'] = $keyword['keyword'];
+                $album['show_album'] = 1;
+                $album['no-zip'] = 1;
                 ob_start();
                 require($album['config']['template_keyword']);
                 $contents = ob_get_contents();
@@ -1521,7 +1617,7 @@ Require valid-user");
             ob_end_clean();
             file_put_contents($dest . DIRECTORY_SEPARATOR . 'index.' . $keyword_album['config']['generated_page_extension'], $contents);
         }
-        if ($this->verbose) echo "Done in " . (time() - $start) . " seconds.\n";
+        if ($this->verbose) echo "Done in " . Utils::timedelta($start, time()) . ".\n";
     }
 
     /**
@@ -1532,10 +1628,10 @@ Require valid-user");
         $root = $this->getRootAlbum();
         if ($root['config']['template_copy'])
         {
-            $files = explode(',',$root['config']['template_copy']);
-            foreach($files as $tf)
+            $files = explode(',', $root['config']['template_copy']);
+            foreach ($files as $tf)
             {
-                $this->recursiveCopyDir(trim($tf),$this->albumBasePath($root).pathinfo($tf,PATHINFO_BASENAME));
+                $this->recursiveCopyDir(trim($tf), $this->albumBasePath($root) . pathinfo($tf, PATHINFO_BASENAME));
             }
         }
     }
@@ -1553,7 +1649,8 @@ Require valid-user");
             $excludes[] = '..';
 
         if ($this->verbose) echo "Copying $source\n";
-        if (is_dir($source)) {
+        if (is_dir($source))
+        {
             $dir_handle = opendir($source);
             while ($file = readdir($dir_handle))
             {
@@ -1570,7 +1667,7 @@ Require valid-user");
                     else
                     {
                         if (!is_dir($dest))
-                            mkdir($dest , 0777, true);
+                            mkdir($dest, 0777, true);
                         copy($source . DIRECTORY_SEPARATOR . $file, $dest . DIRECTORY_SEPARATOR . $file);
                     }
                 }
