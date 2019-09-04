@@ -169,6 +169,7 @@ class ImageGallery
 
         $this->_db->exec('update albums set changed=0');
         $this->recursiveBuildFlatDirlist($this->source);
+        $this->_db->exec('update albums set changed=1 where parent is null'); // force rebuild of top
         if ($this->verbose) echo "Scan done in " . (time() - $start) . " seconds.\n";
     }
 
