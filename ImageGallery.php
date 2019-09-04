@@ -187,6 +187,8 @@ class ImageGallery
 
         $this->_db->exec('update albums set changed=0');
         $this->recursiveBuildFlatDirlist($this->source);
+        $this->_db->exec('update albums set changed=1 where parent is null');
+
         if ($this->verbose) echo "Scan done in " . Utils::timedelta($start, time()) . ".\n";
     }
 
