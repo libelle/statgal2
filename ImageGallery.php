@@ -574,7 +574,7 @@ class ImageGallery
         if ($this->ffmpegpath)
         {
             if ($this->verbose) echo "Creating video thumbnail $dest with max dimension $size\n";
-            $cmd = $this->ffmpegpath . ' -i ' . escapeshellarg($src) . ' -vf "thumbnail,scale=' . $size .
+            $cmd = $this->ffmpegpath . ' -y -i ' . escapeshellarg($src) . ' -vf "thumbnail,scale=' . $size .
                 ':-1" -frames:v 1 ' . escapeshellarg($src . '_VT.jpg');
             exec($cmd);
             $this->buildScaledImage(
@@ -621,7 +621,7 @@ class ImageGallery
                             else
                                 $scale = "-2:$size";
                         }
-                        $cmd = $this->ffmpegpath . ' -i ' . escapeshellarg($src) .
+                        $cmd = $this->ffmpegpath . ' -y -i ' . escapeshellarg($src) .
                             ' -vcodec h264 -acodec aac -strict -2 ' .
                             ($scale ? ' -vf "scale=' . $scale . '"' : '') . ' ' . pathinfo($dest, PATHINFO_DIRNAME) .
                             DIRECTORY_SEPARATOR . pathinfo($dest, PATHINFO_FILENAME) . '.mp4';
