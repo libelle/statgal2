@@ -132,7 +132,7 @@ class LabeledImage
         $image_metadata = array();
         $meta = self::exportMetadata($filename,$exivpath);
         $keys = array_keys(self::$metadata_map);
-        array_walk($exclude_keywords,function($d){return mb_strtolower($d,mb_detect_encoding($d,'UTF-8, ISO-8859-1'));});
+        array_walk($exclude_keywords,function(&$v,$k){$v=mb_strtolower($v,mb_detect_encoding($v,'UTF-8, ISO-8859-1'));});
         foreach($keys as $key)
         {
             $image_metadata[$key]=array();
@@ -152,9 +152,7 @@ class LabeledImage
                     $vals = explode(',',$val);
                     foreach($vals as $tv)
                     {
-                        $tk = mb_strtolower(trim($tv),mb_detect_encoding($tv,'UTF-8, ISO-8859-1'));
-                        if (! in_array($tk,$exclude_keywords))
-                            $image_metadata[$key][] = trim($tv);
+                        $image_metadata[$key][] = trim($tv);
                     }
                 }
                 else
@@ -167,6 +165,13 @@ class LabeledImage
             {
                 $image_metadata[$key] = array_unique($val);
             }
+        }
+        foreach ($image_metadata as $k => $v)
+        {
+            $image_metadata[$k] = array_filter($v, function ($v1) use ($exclude_keywords) {
+                $tk = mb_strtolower(trim($v1), mb_detect_encoding($v1, 'UTF-8, ISO-8859-1'));
+                return (!in_array($tk, $exclude_keywords));
+            }, ARRAY_FILTER_USE_BOTH);
         }
         if ($sanitize)
             return self::sanitizeHeaders($image_metadata);

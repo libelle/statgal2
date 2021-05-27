@@ -148,6 +148,7 @@ class ImageGallery
         $this->_dbr['set_kw'] = $this->_db->prepare('insert into keywords (keyword, safekeyword) values (:keyword,:safekeyword)');
         $this->_dbr['get_ym'] = $this->_db->prepare('select * from yearmonths where year=:year and month=:month');
         $this->_dbr['set_ym'] = $this->_db->prepare('insert into yearmonths (year,month) values (:year,:month)');
+        $this->_dbr['clear_keywords'] = $this->_db->prepare('delete from keywords_images where image_id in (select id from images where parent=:album_id)');
         $this->_dbr['get_kw_image'] = $this->_db->prepare('select * from keywords_images where keyword_id=:keyword_id and image_id=:image_id');
         $this->_dbr['set_kw_image'] = $this->_db->prepare('insert into keywords_images (keyword_id,image_id) values (:keyword_id,:image_id)');
         $this->_dbr['get_ym_image'] = $this->_db->prepare('select * from yearmonths_images where yearmonth_id=:yearmonth_id and image_id=:image_id');
@@ -215,7 +216,6 @@ class ImageGallery
     /**
      * Extract keywords and/or dates from a file
      * @param $file string filespec
-     * @param $get_keywords boolean should we get keywords?
      * @param $exclude array of keywords to ignore
      * @return bool|false|int|mixed
      */
@@ -316,8 +316,10 @@ class ImageGallery
             $alb_list = $this->recursiveRemoveConfigs($row['id']);
             foreach($alb_list as $ta)
             {
-                if ($this->verbose) echo "Removing cached album config for album ID $ta'\n";
+                if ($this->verbose) echo "Removing cached album config for album ID $ta\n";
                 $this->_dbr['remove_album']->execute(array(':id' => $ta));
+                if ($this->verbose) echo "Removing keyword mapping for images in album ID $ta\n";
+                $this->_dbr['clear_keywords']->execute(array(':album_id' => $ta));
                 if ($this->verbose) echo "Removing cached album image data for album ID $ta\n";
                 $this->_dbr['remove_album_images']->execute(array(':parent' => $ta));
             }
