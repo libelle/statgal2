@@ -210,7 +210,7 @@ class LabeledImage
         }
         if (!$dateOK)
         {
-            $headers['date'] = array(date('Y-m-d'));
+            $headers['date'] = false;
         }
         return $headers;
     }
