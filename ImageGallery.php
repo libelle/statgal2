@@ -1504,7 +1504,7 @@ Require valid-user");
                 $dates[] = $ty;
             }
             usort($dates, function ($a, $b) {
-                return strcasecmp($a['year'] . '-' . $a['month'], $b['year'] . '-' . $b['month']);
+                return strcasecmp($a['year'] . '-' . sprintf("%02d",$a['month']), $b['year'] . '-' . sprintf("%02d",$b['month']));
             });
             foreach ($dates as $idx => $date)
             {
