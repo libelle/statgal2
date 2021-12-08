@@ -50,6 +50,7 @@ $opt_def = array(
     'f' => false,
     'F' => false,
     'n' => false,
+    'd' => false,
     'e' => '/usr/bin/exiv2',
     'm' => '/usr/bin/ffmpeg',
     'p' => '/usr/bin/ffprobe',
@@ -58,22 +59,23 @@ $opt_def = array(
 if (count($argv) == 1)
 {
     echo "Usage:\n";
-    echo "statgal.php [-s source directory] [-v] [-f] [-F] [-n] [-e exiv2 path] [-m ffmpeg path] [-p ffprobe path]\n";
+    echo "statgal.php [-s source directory] [-v] [-d] [-f] [-F] [-n] [-e exiv2 path] [-m ffmpeg path] [-p ffprobe path]\n";
     echo "  source directory (or any subdir) may contain a config file named config.txt\n";
     echo "  -v is verbose\n";
-    echo "  -f means do everything from scratch\n";
+    echo "  -d is debug-level verbose\n";
+    echo "  -f rescales new images, generates pages\n";
     echo "  -F means redo pages from scratch but no image processing\n";
-    echo "  -n means clear the data cache and rescan for all structure and keyword data\n";
+    echo "  -n means clear the data cache, and rescan for all structure and keyword data. Implies -f\n";
     echo "  -e provides explicit path to exiv2 executable\n";
     echo "  -m provides explicit path to ffmpeg executable\n";
     echo "  -p provides explicit path to ffprobe executable\n";
     echo "defaults:\n";
     foreach ($opt_def as $k => $v) echo "-$k = $v\n";
     echo "e.g.,\n";
-    echo "statgal.php -v -s=in\n";
+    echo "statgal.php -v -s source_dir\n";
     exit;
 }
-$options = getopt('s:vnfFe::m::p::');
+$options = getopt('s:vdnfFe::m::p::');
 
 $i = new ImageGallery;
 $i->source = $options['s'];
@@ -84,4 +86,6 @@ $i->nocache = isset($options['n'])?true:$opt_def['n'];
 $i->exivpath = isset($options['e'])?$options['e']:false;
 $i->ffmpegpath = isset($options['m'])?$options['m']:false;
 $i->ffprobepath = isset($options['p'])?$options['p']:false;
+$i->debug = isset($options['d'])?true:$opt_def['d'];
+$i->verbose = ((isset($options['v'])?true:$opt_def['v'])||$i->debug);
 $i->run();

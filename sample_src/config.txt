@@ -56,6 +56,8 @@ gallery_zipfile=true
 # provide a link on the image detail page to download the largest image size? Doesn't work for videos.
 download_largest=true
 
+# set a default date for items in this album? Good when EXIF is screwy and you don't want to use file dates or today's date
+default_date=2021-06-01 10:02:00
 
 #################################################################################################
 # Section 3. Album protection.
@@ -122,20 +124,20 @@ exclude_from_tagged=NIKON,NIKON CORPORATION,NIKON D70,E995,NIKON D90,Canon EOS D
 # create a version of the image with the keywords and title rendered into the image?
 create_labeled_image=true
 # labeling font, ttf file
-font_path=/Library/Fonts/Arial.ttf
+font_path=/System/Library/Fonts/Supplemental/Arial Unicode.ttf
 
 #################################################################################################
 # Section 6. Templates
 # Template files for building pages. Best documentation is to look at supplied templates.
 #################################################################################################
-template_gallery=template_unite/gallery.php
-template_image=template_unite/image.php
-template_keywords=template_unite/keywords.php
-template_keyword=template_unite/gallery.php
-template_dates=template_unite/dates.php
-template_date=template_unite/gallery.php
+template_gallery=template_barebones/gallery.php
+template_image=template_barebones/image.php
+template_keywords=template_barebones/keywords.php
+template_keyword=template_barebones/gallery.php
+template_dates=template_barebones/dates.php
+template_date=template_barebones/gallery.php
 # in addition to rendering pages, copy these files/directories into the root level of the output
-template_copy=template_unite/unitegallery,template_unite/style.css
+template_copy=template_barebones/style.css
 
 
 

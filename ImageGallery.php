@@ -48,6 +48,7 @@ class ImageGallery
     public $exivpath;
     public $ffmpegpath;
     public $ffprobepath;
+    public $debug;
 
     protected $_db;
     // commonly used prepared statements, e.g. in recursive fns
@@ -133,16 +134,21 @@ class ImageGallery
 
         $this->_db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
         $this->_dbr['get_album'] = $this->_db->prepare('SELECT * FROM albums where spec=:spec');
+        $this->_dbr['get_child_albums'] = $this->_db->prepare('SELECT id FROM albums where parent=:id');
         $this->_dbr['get_image'] = $this->_db->prepare('SELECT * FROM images where spec=:spec and parent=:parent');
         $this->_dbr['create_album'] = $this->_db->prepare('INSERT INTO albums (parent,spec,changed) VALUES (:parent,:spec,:changed)');
+        $this->_dbr['remove_album'] = $this->_db->prepare('DELETE FROM albums where id=:id');
         $this->_dbr['create_image'] = $this->_db->prepare('INSERT INTO images (parent,spec,file_date) VALUES (:parent,:spec,:file_date)');
+        $this->_dbr['remove_album_images'] = $this->_db->prepare('DELETE FROM images WHERE parent=:parent');
         $this->_dbr['set_image_title'] = $this->_db->prepare('update images set title=:title, gallery_spec=:gallery_spec where id=:id');
         $this->_dbr['get_config'] = $this->_db->prepare('SELECT config FROM albums where spec=:spec');
         $this->_dbr['set_config'] = $this->_db->prepare('UPDATE albums set config=:config, title=:title,config_date=:config_date,changed=:changed where id=:id');
+        $this->_dbr['set_album_changed'] = $this->_db->prepare('UPDATE albums set changed=:changed where id=:id');
         $this->_dbr['get_kw'] = $this->_db->prepare('select * from keywords where safekeyword=:safekeyword');
         $this->_dbr['set_kw'] = $this->_db->prepare('insert into keywords (keyword, safekeyword) values (:keyword,:safekeyword)');
         $this->_dbr['get_ym'] = $this->_db->prepare('select * from yearmonths where year=:year and month=:month');
         $this->_dbr['set_ym'] = $this->_db->prepare('insert into yearmonths (year,month) values (:year,:month)');
+        $this->_dbr['clear_keywords'] = $this->_db->prepare('delete from keywords_images where image_id in (select id from images where parent=:album_id)');
         $this->_dbr['get_kw_image'] = $this->_db->prepare('select * from keywords_images where keyword_id=:keyword_id and image_id=:image_id');
         $this->_dbr['set_kw_image'] = $this->_db->prepare('insert into keywords_images (keyword_id,image_id) values (:keyword_id,:image_id)');
         $this->_dbr['get_ym_image'] = $this->_db->prepare('select * from yearmonths_images where yearmonth_id=:yearmonth_id and image_id=:image_id');
@@ -210,17 +216,17 @@ class ImageGallery
     /**
      * Extract keywords and/or dates from a file
      * @param $file string filespec
-     * @param $get_keywords boolean should we get keywords?
      * @param $exclude array of keywords to ignore
      * @return bool|false|int|mixed
      */
-    public function getKeywords($file, $get_keywords, $exclude, $add = array())
+    public function getKeywords($file, $album, $exclude)
     {
-        if ($this->verbose) echo "Scanning file for" . ($get_keywords ? " keywords and" : "") . " EXIF date/title.\n";
+        if ($this->verbose) echo "Scanning file for" . ($album['config']['enable_keywords'] ? " keywords and" : "") . " EXIF date/title.\n";
+        $add = ($album['config']['album_name_keywords'] ? $this->getKeywordsFromTitle($album['title'], $exclude) : array());
         if ($this->isVideo($file))
         {
             $spec = pathinfo($file['spec'], PATHINFO_FILENAME);
-            $date = $file['file_date'];
+            $date = (isset($album['config']['default_date'])?strtotime($album['config']['default_date']):$file['file_date']);
             $filetitle = Utils::makeHumanNice($spec);
             $filetitle = \ForceUTF8\Encoding::toUTF8($filetitle);
             $this->_dbr['update_image']->execute(array(':image_date' => $date, ':title' => $filetitle, ':id' => $file['id'], ':gallery_spec' => $spec));
@@ -232,7 +238,7 @@ class ImageGallery
             {
                 // update image data
                 $spec = pathinfo($file['spec'], PATHINFO_FILENAME);
-                $date = (!empty($keywords['date'][0]) ? strtotime($keywords['date'][0]) : $file['file_date']);
+                $date = ($keywords['date'][0] ? strtotime($keywords['date'][0]) : (!empty($album['config']['default_date'])?strtotime($album['config']['default_date']):$file['file_date']));
                 $filetitle = (!empty($keywords['title'][0]) ? $keywords['title'][0] :
                     (!empty($keywords['caption'][0]) ? $keywords['caption'][0] :
                         (!empty($keywords['headline'][0]) ? $keywords['headline'][0] : Utils::makeHumanNice($spec))));
@@ -241,7 +247,7 @@ class ImageGallery
                 $file['image_date'] = $date;
             }
 
-            if ($get_keywords)
+            if ($album['config']['enable_keywords'])
             {
                 foreach ($add as $tk)
                 {
@@ -277,6 +283,18 @@ class ImageGallery
         }
     }
 
+    public function recursiveRemoveConfigs($album_id,$depth=0)
+    {$list=array($album_id);
+
+       $this->_dbr['get_child_albums']->execute(array(':id'=>$album_id));
+       $data = $this->_dbr['get_child_albums']->fetchAll();
+       foreach($data as $td)
+       {
+           $list = array_merge($list,$this->recursiveRemoveConfigs($td['id'], $depth+1));
+       }
+       return $list;
+    }
+
     /**
      * Scan for config files
      * @param $dir string starting point
@@ -285,6 +303,27 @@ class ImageGallery
     public function recursiveBuildFlatDirlist($dir, $parent = null)
     {
         if ($this->verbose) echo "Scanning '$dir'\n";
+              // do a redo if needed
+        if (file_exists($dir . DIRECTORY_SEPARATOR . 'redo.txt'))
+        {
+            if ($this->verbose) echo "Found redo.txt file in '$dir', redoing!\n";
+            unlink($dir . DIRECTORY_SEPARATOR . 'redo.txt');
+            $this->_dbr['get_album']->execute(array(':spec' => $dir));
+            $row = $this->_dbr['get_album']->fetch(PDO::FETCH_ASSOC);
+
+            if ($row['parent'])
+                $this->_dbr['set_album_changed']->execute(array(':changed'=>1,':id'=>$row['parent']));
+            $alb_list = $this->recursiveRemoveConfigs($row['id']);
+            foreach($alb_list as $ta)
+            {
+                if ($this->verbose) echo "Removing cached album config for album ID $ta\n";
+                $this->_dbr['remove_album']->execute(array(':id' => $ta));
+                if ($this->verbose) echo "Removing keyword mapping for images in album ID $ta\n";
+                $this->_dbr['clear_keywords']->execute(array(':album_id' => $ta));
+                if ($this->verbose) echo "Removing cached album image data for album ID $ta\n";
+                $this->_dbr['remove_album_images']->execute(array(':parent' => $ta));
+            }
+        }
         // paths are unique
         $this->_dbr['get_album']->execute(array(':spec' => $dir));
         $row = $this->_dbr['get_album']->fetch(PDO::FETCH_ASSOC);
@@ -372,10 +411,7 @@ class ImageGallery
                 // do keywords
                 if (!empty($this->exivpath))
                 {
-                    $this->getKeywords($row, $album['config']['enable_keywords'],
-                        $exclude,
-                        ($album['config']['album_name_keywords'] ? $this->getKeywordsFromTitle($album['title'], $exclude) : array())
-                    );
+                    $this->getKeywords($row, $album, $exclude);
                 }
             }
         }
@@ -574,7 +610,7 @@ class ImageGallery
         if ($this->ffmpegpath)
         {
             if ($this->verbose) echo "Creating video thumbnail $dest with max dimension $size\n";
-            $cmd = $this->ffmpegpath . ' -i ' . escapeshellarg($src) . ' -vf "thumbnail,scale=' . $size .
+            $cmd = $this->ffmpegpath . ' -y -i ' . escapeshellarg($src) . ' -vf "thumbnail,scale=' . $size .
                 ':-1" -frames:v 1 ' . escapeshellarg($src . '_VT.jpg');
             exec($cmd);
             $this->buildScaledImage(
@@ -621,7 +657,7 @@ class ImageGallery
                             else
                                 $scale = "-2:$size";
                         }
-                        $cmd = $this->ffmpegpath . ' -i ' . escapeshellarg($src) .
+                        $cmd = $this->ffmpegpath . ' -y -i ' . escapeshellarg($src) .
                             ' -vcodec h264 -acodec aac -strict -2 ' .
                             ($scale ? ' -vf "scale=' . $scale . '"' : '') . ' ' . pathinfo($dest, PATHINFO_DIRNAME) .
                             DIRECTORY_SEPARATOR . pathinfo($dest, PATHINFO_FILENAME) . '.mp4';
@@ -802,6 +838,7 @@ class ImageGallery
             'create_labeled_image' => false,
             'enable_date_index' => true,
             'create_date_index_pages' => true,
+            'default_date'=>false,
             'font_path' => '/Library/fonts/Arial.ttf',
             'create_keyword_pages' => true,
             'download_largest' => true,
@@ -849,6 +886,7 @@ class ImageGallery
     function getConfigs($dir, $date = false)
     {
         $new = null;
+        $force = false;
         $config = $this->getDirConfig($dir);
         foreach ($this->getNoninheritedConfig() as $tnic)
         {
@@ -857,7 +895,7 @@ class ImageGallery
         if (file_exists($dir . DIRECTORY_SEPARATOR . 'config.txt'))
         {
             $new = filemtime($dir . DIRECTORY_SEPARATOR . 'config.txt');
-            if (!$date || $new > $date)
+            if (!$date || $new > $date || $force)
             {
                 if ($this->verbose) echo "Reading $dir/config.txt\n";
                 $conf = file($dir . DIRECTORY_SEPARATOR . 'config.txt');
@@ -886,6 +924,7 @@ class ImageGallery
         }
         else if (!$date)
             $new = time();
+        if ($this->debug) {echo "Config for $dir:\n";print_r($config);}
         return array($new, $config);
     }
 

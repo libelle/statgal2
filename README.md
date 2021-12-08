@@ -41,5 +41,26 @@ PHP with Imagick and SQLLite support. If you're going to do keywords, you'll nee
 - Optionally, create a "config.txt" in the top level and/or any subdirectories. See the documented example in the "sample_src" directory for details.
 - Run it: `./statgal2.php -s sample_src`
 
+statgal.php [-s source directory] [-v] [-f] [-F] [-n] [-e exiv2 path] [-m ffmpeg path] [-p ffprobe path]
+  source directory (or any subdir) may contain a config file named config.txt
+  -v is verbose
+  -f (re)scales all images, generates pages
+  -F means redo pages from scratch but no image processing
+  -n means clear the data cache, and rescan for all structure and keyword data. Implies -f
+  -e provides explicit path to exiv2 executable
+  -m provides explicit path to ffmpeg executable
+  -p provides explicit path to ffprobe executable
+defaults:
+-s =
+-v =
+-f =
+-F =
+-n =
+-e = /usr/bin/exiv2
+-m = /usr/bin/ffmpeg
+-p = /usr/bin/ffprobe
+
+Place a file "redo.txt" in a directory to be the equivalent of "-f" for that directory only. The "redo.txt" file will be removed after processing.
+
 # sample output
 You can see the output when this is [run against the sample_src directory](https://libelle.github.io/statgal2/).
