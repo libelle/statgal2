@@ -49,6 +49,7 @@ class ImageGallery
     public $ffmpegpath;
     public $ffprobepath;
     public $debug;
+    public $remove;
 
     protected $_db;
     // commonly used prepared statements, e.g. in recursive fns
@@ -64,14 +65,20 @@ class ImageGallery
     {
         $start = time();
         $this->init();
-        $this->getRoot();
-        $this->getFiles();
-        $this->buildDateIndex();
-        $this->buildSizedImages();
-        $this->buildAlbumPages();
-        $this->buildKeywordPages();
-        $this->buildDatePages();
-        $this->buildTemplateCopies();
+        if ($this->remove)
+        {
+            $this->removeMeta();
+        }
+        else {
+            $this->getRoot();
+            $this->getFiles();
+            $this->buildDateIndex();
+            $this->buildSizedImages();
+            $this->buildAlbumPages();
+            $this->buildKeywordPages();
+            $this->buildDatePages();
+            $this->buildTemplateCopies();
+        }
         if ($this->verbose) $this->stats();
         $this->closeDb();
         if ($this->verbose) echo "Generation completed in " . Utils::timedelta($start, time()) . ".\n";
@@ -149,6 +156,7 @@ class ImageGallery
         $this->_dbr['get_ym'] = $this->_db->prepare('select * from yearmonths where year=:year and month=:month');
         $this->_dbr['set_ym'] = $this->_db->prepare('insert into yearmonths (year,month) values (:year,:month)');
         $this->_dbr['clear_keywords'] = $this->_db->prepare('delete from keywords_images where image_id in (select id from images where parent=:album_id)');
+        $this->_dbr['clear_dates'] = $this->_db->prepare('delete from yearmonths_images where image_id in (select id from images where parent=:album_id)');
         $this->_dbr['get_kw_image'] = $this->_db->prepare('select * from keywords_images where keyword_id=:keyword_id and image_id=:image_id');
         $this->_dbr['set_kw_image'] = $this->_db->prepare('insert into keywords_images (keyword_id,image_id) values (:keyword_id,:image_id)');
         $this->_dbr['get_ym_image'] = $this->_db->prepare('select * from yearmonths_images where yearmonth_id=:yearmonth_id and image_id=:image_id');
@@ -156,6 +164,7 @@ class ImageGallery
         $this->_dbr['update_image'] = $this->_db->prepare('update images set image_date=:image_date,title=:title,gallery_spec=:gallery_spec where id=:id');
         $this->_dbr['update_image_size'] = $this->_db->prepare('update images set fullsize=:fullsize where id=:id');
         $this->_dbr['update_image_date'] = $this->_db->prepare('update images set image_date=:image_date where id=:id');
+
     }
 
     /**
@@ -284,8 +293,8 @@ class ImageGallery
     }
 
     public function recursiveRemoveConfigs($album_id,$depth=0)
-    {$list=array($album_id);
-
+    {
+        $list=array($album_id);
        $this->_dbr['get_child_albums']->execute(array(':id'=>$album_id));
        $data = $this->_dbr['get_child_albums']->fetchAll();
        foreach($data as $td)
@@ -1718,6 +1727,25 @@ Require valid-user");
         else
         {
             copy($source, $dest);
+        }
+    }
+
+    public function removeMeta()
+    {
+        $this->_dbr['get_album']->execute(array(':spec' => $this->remove));
+        $row = $this->_dbr['get_album']->fetch(PDO::FETCH_ASSOC);
+        if ($row)
+        {
+            // album is
+            $this->_dbr['clear_keywords']->execute(array(':id'=>$row['id']));
+            $this->_dbr['clear_dates']->execute(array(':id'=>$row['id']));
+            $this->_dbr['remove_album_images']->execute(array(':id'=>$row['id']));
+            $this->_dbr['remove_album']->execute(array(':id'=>$row['id']));
+            echo "Deleted\n";
+        }
+        else
+        {
+            echo "Error. Could not find {$this->remove}. Please use full gallery path.\n";
         }
     }
 

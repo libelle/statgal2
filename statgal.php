@@ -59,7 +59,7 @@ $opt_def = array(
 if (count($argv) == 1)
 {
     echo "Usage:\n";
-    echo "statgal.php [-s source directory] [-v] [-d] [-f] [-F] [-n] [-e exiv2 path] [-m ffmpeg path] [-p ffprobe path]\n";
+    echo "statgal.php [-s source directory] [-v] [-d] [-f] [-F] [-n] [-e exiv2 path] [-m ffmpeg path] [-p ffprobe path] [-r filespec]\n";
     echo "  source directory (or any subdir) may contain a config file named config.txt\n";
     echo "  -v is verbose\n";
     echo "  -d is debug-level verbose\n";
@@ -69,13 +69,14 @@ if (count($argv) == 1)
     echo "  -e provides explicit path to exiv2 executable\n";
     echo "  -m provides explicit path to ffmpeg executable\n";
     echo "  -p provides explicit path to ffprobe executable\n";
+    echo "  -r removes an album\n";
     echo "defaults:\n";
     foreach ($opt_def as $k => $v) echo "-$k = $v\n";
     echo "e.g.,\n";
     echo "statgal.php -v -s source_dir\n";
     exit;
 }
-$options = getopt('s:vdnfFe::m::p::');
+$options = getopt('s:vdnfFe::m::p::r::');
 
 $i = new ImageGallery;
 $i->source = $options['s'];
@@ -88,4 +89,5 @@ $i->ffmpegpath = isset($options['m'])?$options['m']:false;
 $i->ffprobepath = isset($options['p'])?$options['p']:false;
 $i->debug = isset($options['d'])?true:$opt_def['d'];
 $i->verbose = ((isset($options['v'])?true:$opt_def['v'])||$i->debug);
+$i->remove = isset($options['r'])?$options['r']:false;
 $i->run();
