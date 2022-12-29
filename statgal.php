@@ -76,10 +76,10 @@ if (count($argv) == 1)
     echo "statgal.php -v -s source_dir\n";
     exit;
 }
-$options = getopt('s:vdnfFe::m::p::r::');
+$options = getopt('s::vdnfFe::m::p::r::');
 
 $i = new ImageGallery;
-$i->source = $options['s'];
+$i->source = isset($options['s'])?$options['s']:false;
 $i->verbose = isset($options['v'])?true:$opt_def['v'];
 $i->force = isset($options['f'])?true:$opt_def['f'];
 $i->forcepages = isset($options['F'])?true:$opt_def['F'];
@@ -90,4 +90,7 @@ $i->ffprobepath = isset($options['p'])?$options['p']:false;
 $i->debug = isset($options['d'])?true:$opt_def['d'];
 $i->verbose = ((isset($options['v'])?true:$opt_def['v'])||$i->debug);
 $i->remove = isset($options['r'])?$options['r']:false;
-$i->run();
+if ($i->source || $i->remove)
+    $i->run();
+else
+    echo "Please specify a source for the gallery or an album for removal\n";
