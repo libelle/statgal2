@@ -49,11 +49,7 @@ class ImageGallery
     public $ffmpegpath;
     public $ffprobepath;
     public $debug;
-<<<<<<< HEAD
     public $removal;
-=======
-    public $remove;
->>>>>>> 33a29628f7ad9a7d3546320976feac3af0e9ab52
 
     protected $_db;
     // commonly used prepared statements, e.g. in recursive fns
@@ -69,11 +65,7 @@ class ImageGallery
     {
         $start = time();
         $this->init();
-<<<<<<< HEAD
         if ($this->removal)
-=======
-        if ($this->remove)
->>>>>>> 33a29628f7ad9a7d3546320976feac3af0e9ab52
         {
             $this->removeMeta();
         }
