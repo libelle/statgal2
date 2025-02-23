@@ -64,6 +64,7 @@ class ImageGallery
     public function run()
     {
         $start = time();
+
         $this->init();
         if ($this->removal)
         {
@@ -165,6 +166,7 @@ class ImageGallery
         $this->_dbr['update_image'] = $this->_db->prepare('update images set image_date=:image_date,title=:title,gallery_spec=:gallery_spec where id=:id');
         $this->_dbr['update_image_size'] = $this->_db->prepare('update images set fullsize=:fullsize where id=:id');
         $this->_dbr['update_image_date'] = $this->_db->prepare('update images set image_date=:image_date where id=:id');
+        $this->_dbr['title_in_gal'] = $this->_db->prepare("select count(*) as `tc` from images where title=:title and parent=:album_id");
 
     }
 
@@ -199,7 +201,7 @@ class ImageGallery
         $start = time();
         if ($this->verbose) echo "Starting from root '{$this->source}'\n";
         if (!is_dir($this->source))
-            throw new Exception('Specified source path for gallery does not exist.');
+            throw new Exception("Specified source path for gallery {$this->source} does not exist.");
 
         $this->_db->exec('update albums set changed=0');
         $this->recursiveBuildFlatDirlist($this->source);
@@ -239,7 +241,8 @@ class ImageGallery
             $date = (isset($album['config']['default_date'])?strtotime($album['config']['default_date']):$file['file_date']);
             $filetitle = Utils::makeHumanNice($spec);
             $filetitle = \ForceUTF8\Encoding::toUTF8($filetitle);
-            $this->_dbr['update_image']->execute(array(':image_date' => $date, ':title' => $filetitle, ':id' => $file['id'], ':gallery_spec' => $spec));
+            $nt = $this->fixTitle($filetitle,$album['id']);
+            $this->_dbr['update_image']->execute(array(':image_date' => $date, ':title' => $nt, ':id' => $file['id'], ':gallery_spec' => $spec));
         }
         else
         {
@@ -253,7 +256,8 @@ class ImageGallery
                     (!empty($keywords['caption'][0]) ? $keywords['caption'][0] :
                         (!empty($keywords['headline'][0]) ? $keywords['headline'][0] : Utils::makeHumanNice($spec))));
                 $filetitle = \ForceUTF8\Encoding::toUTF8($filetitle);
-                $this->_dbr['update_image']->execute(array(':image_date' => $date, ':title' => $filetitle, ':id' => $file['id'], ':gallery_spec' => $spec));
+                $nt = $this->fixTitle($filetitle,$album['id']);
+                $this->_dbr['update_image']->execute(array(':image_date' => $date, ':title' => $nt, ':id' => $file['id'], ':gallery_spec' => $spec));
                 $file['image_date'] = $date;
             }
 
@@ -455,6 +459,32 @@ class ImageGallery
     {
         $album['config'] = json_decode($album['config'], true);
     }
+
+    public function fixTitle($title,$album_id)
+    {
+        $this->_dbr['title_in_gal']->execute(array(':title' => $title,':album_id'=>$album_id));
+        $row = $this->_dbr['title_in_gal']->fetch(PDO::FETCH_ASSOC);
+        $id = $row['tc'];
+        if ($id > 0)
+        {
+            $idx = 1;
+            $seeking=true;
+            while ($seeking)
+            {
+                $nt = $title . '-' . $idx;
+                $this->_dbr['title_in_gal']->execute(array(':title' => $nt,':album_id'=>$album_id));
+                $row = $this->_dbr['title_in_gal']->fetch(PDO::FETCH_ASSOC);
+                $id = $row['tc'];
+                if ($id==0)
+                    $seeking=false;
+                else
+                    $idx++;
+            }
+            return $nt;
+        }
+        return $title;
+    }
+
 
     /**
      * Is this image a video type?
@@ -1400,11 +1430,6 @@ Require valid-user");
                 ob_end_clean();
                 file_put_contents($this->albumBasePath($album) . DIRECTORY_SEPARATOR . Utils::unicodeSanitizeFilename($image['title']) . '.' . $album['config']['generated_page_extension'], $contents);
             }
-        }
-        if (count($images) > 0 && $album['config']['gallery_zipfile'])
-        {
-            $zipurl = $this->buildZipFile($album);
-            $album['zip_url'] = $album_url_prefix . $zipurl;
         }
     }
 

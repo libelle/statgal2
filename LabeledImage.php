@@ -220,7 +220,7 @@ class LabeledImage
         return $headers;
     }
 
-    public static function createLabeledImage($src_filename, $dest_filename, $options=array(), $exivpath)
+    public static function createLabeledImage($src_filename, $dest_filename, $options=array(), $exivpath='/usr/bin/exiv2')
     {
         $size = getimagesize($src_filename);
         $image = new Imagick($src_filename);
